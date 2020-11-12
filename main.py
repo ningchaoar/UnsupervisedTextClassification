@@ -23,6 +23,7 @@ def load_category_and_words(input_file: str) -> Category:
             words = set(words.split(" "))
             root_category.add_category(categories).set_keywords(words)
     root_category.set_category_list(category_list)
+    logging.info("分类树: {}".format(root_category))
     return root_category
 
 
@@ -49,7 +50,7 @@ def preliminary_labeling(category_tree: Category, segs: List[List[str]]):
     :return: 返回词表({word: index})和文档计数稀疏矩阵(csr_matrix)
     """
     # 默认的token_pattern会过滤掉单字
-    cv = CountVectorizer(analyzer="word", max_df=0.95, min_df=0.001, token_pattern=r"(?u)\b\w+\b")
+    cv = CountVectorizer(analyzer="word", max_df=0.8, min_df=0.001, token_pattern=r"(?u)\b\w\w+\b")
     logging.info("初始化单词-文档计数矩阵")
     document_to_word_count = cv.fit_transform([" ".join(seg) for seg in segs])  # csr_matrix, shape=(N_documents, N_vocabulary)
     for i, seg in tqdm(enumerate(segs), desc="文档预标注"):
@@ -83,7 +84,7 @@ def init_bayes_model(category_tree: Category, documents_size: int, vocab_size: i
         category_path = category.split("/")
         category_documents = category_tree.find_category(category_path).get_documents()
         for document_index in category_documents:
-            category_document_cond_probability[document_index][i] = 1.0
+            category_document_cond_probability[document_index, i] = 1.0
         category_prior_probability[i] = (1 + len(category_documents)) / (category_size + documents_size)  # Laplace smooth
 
     # 调整形状并转化为Matrix对象, 便于矩阵乘法
@@ -108,25 +109,19 @@ def expectation_step(document_to_word_count, p_c, p_c_d, p_w_c):
         p_c[i, 0] = (1 + p_c_d[i].sum()) / (category_size + documents_size)
 
 
-def maximization_step(document_to_word_count, p_c_d, p_c, p_w_c):
+def maximization_step(document_to_word_count, p_c, p_w_c):
     # 根据本轮P(W|C)和P(C), 更新P(C|D)(公式3)
     # 公式3 中的乘法改为加法
-    category_size = p_c.shape[0]
-    documents_size = document_to_word_count.shape[0]
-    for i in tqdm(range(category_size), desc="M-step"):
-        for j in range(documents_size):
-            val = p_c[i, 0]
-            document_vec = document_to_word_count[j]
-            doc_feature_row, doc_feature_col = document_vec.nonzero()
-            for m, n in zip(doc_feature_row, doc_feature_col):
-                val += p_w_c[n, i] * document_vec[m, n]
-            p_c_d[i, j] = val
-    return softmax(p_c_d)
+    logging.info("M-step")
+    log_p_d_c = document_to_word_count * np.log(p_w_c)  # shape=(N_documents, N_cate)
+    log_p_c_d = np.log(p_c) + log_p_d_c.T
+    return softmax(log_p_c_d)
 
 
 def softmax(x):
-    norm_x = np.exp(x - x.max())
-    return norm_x / norm_x.sum()
+    # 注意axis=0，对每一个文档的概率分布都减去对应的最大值
+    norm_x = x - x.max(axis=0)
+    return np.exp(norm_x) / np.exp(norm_x).sum(axis=0)
 
 
 def hierarchical_shrinkage_step():
@@ -135,22 +130,22 @@ def hierarchical_shrinkage_step():
 
 if __name__ == "__main__":
     word_file = "resources/dict/words.txt"
-    sms_file = "resources/cropus/sms.txt"
+    sms_file = "resources/cropus/text_cropus.txt"
     logging.basicConfig(level=logging.INFO)
     category_tree = load_category_and_words(word_file)
     documents = load_unlabled_documents(sms_file)
-    random.shuffle(documents)
-    documents = documents[:20000]
+    # random.shuffle(documents)
+    # documents = documents[:20000]
     segs = seg_documents(documents)
     vocabulary, document_to_word_count = preliminary_labeling(category_tree, segs)
     p_c, p_c_d, p_w_c = init_bayes_model(category_tree, documents_size=len(documents), vocab_size=len(vocabulary))
 
-    for i in tqdm(range(5), desc="EM迭代进度"):
+    for i in tqdm(range(5), desc="EM迭代进度\n"):
         expectation_step(document_to_word_count, p_c, p_c_d, p_w_c)
-        p_c_d = maximization_step(document_to_word_count, p_c_d, p_c, p_w_c)
+        p_c_d = maximization_step(document_to_word_count, p_c, p_w_c)
 
     category_list = category_tree.get_category_list()
-    fw = open("resources/cropus/sms_result_1111.txt", "w", encoding="utf-8")
+    fw = open("resources/cropus/text_cropus_result.txt", "w", encoding="utf-8")
     for i in range(len(documents)):
         prob = p_c_d[:, i]
         predict_category = category_list[prob.argmax()]

@@ -34,7 +34,7 @@ class TestMain(unittest.TestCase):
                     root_category.add_category(categories).set_keywords(words)
             return root_category
 
-        file = "resources/dict/words.txt"
+        file = "resources/dict/words_example.txt"
         category_tree = load_category_and_words(file)
         res = str(category_tree)
         an = 'ROOT: [运营商: [流量场景: [], 积分场景: [], 5G场景: []], 银行: [交易场景: [], 通知场景: []], 火车票: [购票场景: [], 抢票场景: []], 机票: [购票场景: [], 改签场景: []], 快递: [取件场景: [], 寄件场景: []]]'
