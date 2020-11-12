@@ -8,7 +8,7 @@ import logging
 import numpy as np
 from typing import *
 from tqdm import tqdm
-from Category import Category
+from category import Category
 from sklearn.feature_extraction.text import CountVectorizer
 
 
@@ -34,6 +34,7 @@ def load_unlabled_documents(file: str) -> List[str]:
 
 
 def seg_documents(documents: List[str]) -> List[List[str]]:
+    # TODO: 应支持自定义的分词器
     segs = []
     for text in tqdm(documents, desc="文档预分词"):
         text = text.strip().split("\t")[-1]
@@ -45,6 +46,7 @@ def seg_documents(documents: List[str]) -> List[List[str]]:
 def preliminary_labeling(category_tree: Category, segs: List[List[str]]):
     """
     遍历文档，根据关键词做预标注, 同时得到计数词典
+    TODO: 应支持自定义的预标注规则, 例如命中两个词或匹配正则
     :param category_tree: 分类树根节点
     :param segs: 文档分词结果
     :return: 返回词表({word: index})和文档计数稀疏矩阵(csr_matrix)
@@ -90,29 +92,44 @@ def init_bayes_model(category_tree: Category, documents_size: int, vocab_size: i
     # 调整形状并转化为Matrix对象, 便于矩阵乘法
     category_prior_probability = np.matrix(category_prior_probability).T  # shape=(N_cate, 1)
     category_document_cond_probability = np.matrix(category_document_cond_probability).T  # shape=(N_cate, N_documents)
+    # TODO: 为适应hierarchical_shrinkage，p_w_c应该增加一个ROOT列
     word_category_cond_probability = np.matrix(np.zeros([vocab_size, len(category_list)]))  # shape=(N_vocab, N_cate)
     logging.info("总计{}/{}条样本得到预标注".format(category_document_cond_probability.sum(), documents_size))
 
     return category_prior_probability, category_document_cond_probability, word_category_cond_probability
 
 
-def expectation_step(document_to_word_count, p_c, p_c_d, p_w_c):
+def maximization_step(document_to_word_count, p_c, p_c_d, p_w_c):
     # 根据本轮P(C|D), 重新计算P(W|C)(公式1)和P(C)(公式2)
     category_to_word_count = p_c_d * document_to_word_count  # shape=(N_cate, N_vocabulary)
     category_size = p_c.shape[0]
     documents_size = document_to_word_count.shape[0]
     vocab_size = document_to_word_count.shape[1]
-    for i in tqdm(range(vocab_size), desc="E-step"):
+    for i in tqdm(range(vocab_size), desc="M-step"):
         for j in range(category_size):
             p_w_c[i, j] = (1 + category_to_word_count[j, i]) / (vocab_size + category_to_word_count[j].sum())
     for i in range(category_size):
         p_c[i, 0] = (1 + p_c_d[i].sum()) / (category_size + documents_size)
 
 
-def maximization_step(document_to_word_count, p_c, p_w_c):
+def maximization_step_with_shrinkage(document_to_word_count, p_c, p_c_d, p_w_c, lambda_matrix):
+    # 每一个分类，存储对应的层级路径list，比如
+    category_to_word_count = p_c_d * document_to_word_count  # shape=(N_cate, N_vocabulary)
+    category_size = p_c.shape[0]
+    documents_size = document_to_word_count.shape[0]
+    vocab_size = document_to_word_count.shape[1]
+    for i in range(vocab_size):
+        for j in range(category_size):
+            parent_categories = lambda_matrix[j+1].nonzero()[1] - 1  # 求出的索引对应category_list
+            p_w_c[i, j] = (1 + category_to_word_count[j, i]) / (vocab_size + category_to_word_count[j].sum())
+    for i in range(category_size):
+        p_c[i, 0] = (1 + p_c_d[i].sum()) / (category_size + documents_size)
+
+
+def expectation_step(document_to_word_count, p_c, p_w_c):
     # 根据本轮P(W|C)和P(C), 更新P(C|D)(公式3)
     # 公式3 中的乘法改为加法
-    logging.info("M-step")
+    logging.info("E-step")
     log_p_d_c = document_to_word_count * np.log(p_w_c)  # shape=(N_documents, N_cate)
     log_p_c_d = np.log(p_c) + log_p_d_c.T
     return softmax(log_p_c_d)
@@ -124,32 +141,50 @@ def softmax(x):
     return np.exp(norm_x) / np.exp(norm_x).sum(axis=0)
 
 
-def hierarchical_shrinkage_step():
-    pass
+def hierarchical_shrinkage_init(category_tree: Category):
+    # 在M-step中执行以修正p_w_c
+    # 构建一个lambda矩阵, 该矩阵行列是所有的分类(包括ROOT), 元素取值范围[0, 1], 每行求和等于1
+    # 对于每一个分类, 获取其在分类树中的路径, 在lambda矩阵中就可以查到其所有依赖的父分类对应的lambda值
+    # 最后, 每个分类的p_w_c都通过矩阵乘法获得, 修正后的p_w_c_new = lambda * p_w_c
+    category_list = category_tree.get_category_list()
+    lambda_matrix = np.matrix(np.zeros([len(category_list)+1, len(category_list)+1]))  # row=0 & col=0对应ROOT分类
+
+    for i, path in tqdm(enumerate(category_list), desc="层级缩减参数初始化"):
+        path_to_root = category_tree.find_category(path.split("/")).get_hierarchical_path()
+        depth = len(path_to_root)
+        init_lambda = 1.0 / depth
+        lambda_matrix[i + 1, 0] = init_lambda
+        for j in range(2, depth+1):  # 跳过ROOT
+            parent_path = path_to_root[1: j]
+            index = category_list.index("/".join(parent_path))
+            lambda_matrix[i + 1, index + 1] = init_lambda
+
+    return lambda_matrix
 
 
 if __name__ == "__main__":
-    word_file = "resources/dict/words.txt"
-    sms_file = "resources/cropus/text_cropus.txt"
+    word_file = "resources/dict/words_18w.txt"
+    sms_file = "resources/cropus/18w_sms.txt"
     logging.basicConfig(level=logging.INFO)
     category_tree = load_category_and_words(word_file)
     documents = load_unlabled_documents(sms_file)
-    # random.shuffle(documents)
-    # documents = documents[:20000]
+    random.shuffle(documents)
+    documents = documents[:2000]
     segs = seg_documents(documents)
     vocabulary, document_to_word_count = preliminary_labeling(category_tree, segs)
+    lambda_matrix = hierarchical_shrinkage_init(category_tree)
     p_c, p_c_d, p_w_c = init_bayes_model(category_tree, documents_size=len(documents), vocab_size=len(vocabulary))
 
-    for i in tqdm(range(5), desc="EM迭代进度\n"):
-        expectation_step(document_to_word_count, p_c, p_c_d, p_w_c)
-        p_c_d = maximization_step(document_to_word_count, p_c, p_w_c)
+    for i in tqdm(range(5), desc="EM迭代进度"):
+        maximization_step(document_to_word_count, p_c, p_c_d, p_w_c)
+        p_c_d = expectation_step(document_to_word_count, p_c, p_w_c)
 
-    category_list = category_tree.get_category_list()
-    fw = open("resources/cropus/text_cropus_result.txt", "w", encoding="utf-8")
-    for i in range(len(documents)):
-        prob = p_c_d[:, i]
-        predict_category = category_list[prob.argmax()]
-        fw.write(documents[i] + "\t" + predict_category + "\n")
-    fw.close()
+    # category_list = category_tree.get_category_list()
+    # fw = open("resources/cropus/text_cropus_result.txt", "w", encoding="utf-8")
+    # for i in range(len(documents)):
+    #     prob = p_c_d[:, i]
+    #     predict_category = category_list[prob.argmax()]
+    #     fw.write(documents[i] + "\t" + predict_category + "\n")
+    # fw.close()
 
 

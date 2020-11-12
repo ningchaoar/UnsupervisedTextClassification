@@ -3,7 +3,7 @@
 # @Author  : ningchao
 # @Time    : 20/11/9 18:16
 import unittest
-from Category import Category
+from category import Category
 
 
 class TestMain(unittest.TestCase):

@@ -29,6 +29,7 @@ class Category:
         return self.name + ": " + str(list(self.childs.keys()))
 
     def get_hierarchical_path(self) -> List[str]:
+        # path including 'ROOT'
         path = []
         parent = self.parent
         while parent is not None:
