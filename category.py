@@ -8,6 +8,7 @@ from typing import *
 class Category:
     def __init__(self, name: str):
         self.name = name
+        self.depth = 0
         self.parent = None
         self.childs = {}  # dict in python>=3.7 is guaranteed to preserve order and is more performant than OrderedDict.
         self.keywords = set()
@@ -29,20 +30,38 @@ class Category:
         return self.name + ": " + str(list(self.childs.keys()))
 
     def get_hierarchical_path(self) -> List[str]:
-        # path including 'ROOT'
+        # path not including 'ROOT'
         path = []
         parent = self.parent
-        while parent is not None:
+        while parent.name != "ROOT":
             path.insert(0, parent.name)
             parent = parent.parent
         path.append(self.name)
         return path
+
+    def set_depth(self, depth: int) -> None:
+        self.depth = depth
+
+    def get_depth(self) -> int:
+        return self.depth
+
+    @staticmethod
+    def get_max_depth(root_node: 'Category', cur_depth: int = 0) -> int:
+        if len(root_node.get_childs()) == 0:
+            return cur_depth
+        cur_depth_copy = cur_depth
+        for child in root_node.childs:
+            child_depth = Category.get_max_depth(child, cur_depth_copy + 1)
+            if child_depth > cur_depth:
+                cur_depth = child_depth
+        return cur_depth
 
     def set_parent(self, parent: 'Category') -> None:
         self.parent = parent
 
     def add_child(self, child: 'Category', depth: int) -> None:
         child.set_parent(self)
+        child.set_depth(depth)
         self.childs[child] = depth
 
     def set_keywords(self, keywords: Set[str]) -> None:
@@ -156,3 +175,4 @@ if __name__ == "__main__":
     root.add_category(["火车票", "购票提醒"])
     root.add_category(["火车票", "交易提醒"])
     print(root)
+    print(Category.get_max_depth(root))

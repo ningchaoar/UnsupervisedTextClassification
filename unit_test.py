@@ -43,7 +43,7 @@ class TestMain(unittest.TestCase):
         category = category_tree.find_category_by_word("流量")
         if category is not None:
             res = "<-".join(category.get_hierarchical_path())
-        an = 'ROOT<-运营商<-流量场景'
+        an = '运营商<-流量场景'
         self.assertEqual(res, an)
 
 
