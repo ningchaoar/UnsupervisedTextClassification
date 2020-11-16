@@ -55,7 +55,7 @@ def preliminary_labeling(category_tree: Category, segs: List[List[str]]):
     cv = CountVectorizer(analyzer="word", max_df=0.8, min_df=0.001, token_pattern=r"(?u)\b\w\w+\b")
     logging.info("初始化单词-文档计数矩阵")
     # TODO: 转换成numpy array, 后面用到的矩阵也使用numpy array而不是matrix
-    document_to_word_count = cv.fit_transform([" ".join(seg) for seg in segs])  # csr_matrix, shape=(N_documents, N_vocabulary)
+    document_to_word_count = cv.fit_transform([" ".join(seg) for seg in segs])  # csr_matrix, shape=(documents_size, vocab_size)
     for i, seg in tqdm(enumerate(segs), desc="文档预标注"):
         category = None
         for word in seg:
@@ -65,7 +65,7 @@ def preliminary_labeling(category_tree: Category, segs: List[List[str]]):
         if category is not None:
             category.add_document(i)
 
-    return cv.vocabulary_, document_to_word_count
+    return cv.vocabulary_, document_to_word_count.toarray()
 
 
 def init_bayes_model(category_tree: Category, documents_size: int, vocab_size: int):
@@ -91,9 +91,9 @@ def init_bayes_model(category_tree: Category, documents_size: int, vocab_size: i
         category_prior_probability[c] = (1.0 + len(category_documents)) / (category_size + documents_size)  # Laplace smooth
 
     # 调整形状并转化为Matrix对象, 便于矩阵乘法
-    category_prior_probability = np.matrix(category_prior_probability).T  # shape=(N_cate, 1)
-    category_document_cond_probability = np.matrix(category_document_cond_probability).T  # shape=(N_cate, N_documents)
-    word_category_cond_probability = np.matrix(np.zeros([vocab_size, len(category_list)]))  # shape=(N_vocab, N_cate)
+    category_prior_probability = category_prior_probability.T  # shape=(category_size, 1)
+    category_document_cond_probability = category_document_cond_probability.T  # shape = (category_size, documents_size)
+    word_category_cond_probability = np.zeros([vocab_size, len(category_list)])  # shape = (vocab_size, category_size)
     logging.info("总计{}/{}条样本得到预标注".format(int(category_document_cond_probability.sum()), documents_size))
 
     return category_prior_probability, category_document_cond_probability, word_category_cond_probability
@@ -101,28 +101,27 @@ def init_bayes_model(category_tree: Category, documents_size: int, vocab_size: i
 
 def maximization_step(document_to_word_count, p_c, p_c_d, p_w_c):
     # 根据本轮P(C|D), 重新计算P(W|C)(公式1)和P(C)(公式2)
-    category_to_word_count = p_c_d * document_to_word_count  # shape=(N_cate, N_vocabulary)
+    category_to_word_count = p_c_d @ document_to_word_count  # shape=(category_size, vocab_size)
     category_size = p_c.shape[0]
-    documents_size = document_to_word_count.shape[0]
+    documents_size = document_to_word_count.shape[0]  # 原论文documents_size = |D| + |H|
     vocab_size = document_to_word_count.shape[1]
     for c in tqdm(range(category_size), desc="M-step(without shrinkage)"):
         for v in range(vocab_size):
             p_w_c[v, c] = (1 + category_to_word_count[c, v]) / (vocab_size + category_to_word_count[c].sum())
     for c in range(category_size):
-        p_c[c, 0] = (1.0 + p_c_d[c].sum()) / (category_size + documents_size)
+        p_c[c] = (1.0 + p_c_d[c].sum()) / (category_size + documents_size)
 
 
-def maximization_step_with_shrinkage(category_tree: Category, document_to_word_count, p_c, p_c_d, p_w_c, lambda_matrix):
-    # 每一个分类，存储对应的层级路径list，比如
-    category_size = p_c.shape[0]
+def maximization_step_with_shrinkage(category_tree: Category, document_to_word_count, p_c, p_c_d, p_w_c, p_w_c_k, lambda_matrix, beta_matrix, iter: int):
     documents_size, vocab_size = document_to_word_count.shape
-    lambda_size = lambda_matrix.shape[1]  # max_depth + 2
-
+    category_size, lambda_size = lambda_matrix.shape
     category_list = category_tree.get_category_list()
-
-    category_to_word_count = p_c_d * document_to_word_count  # shape=(N_cate, N_vocabulary)
-    p_w_c_k = np.zeros([vocab_size, category_size, lambda_size])
-
+    # vertical M
+    if iter > 0:
+        shrinkage_maximization_step(lambda_matrix, beta_matrix, p_c_d)
+    # horizontal M
+    # update P^{α}(w|c)
+    category_to_word_count = p_c_d @ document_to_word_count  # shape=(category_size, vocab_size)
     for c in tqdm(range(category_size), desc="M-step(with shrinkage)"):
         category_path = category_list[c].split("/")
         dep_list = []
@@ -132,35 +131,39 @@ def maximization_step_with_shrinkage(category_tree: Category, document_to_word_c
             dep_list.append(category_list.index("/".join(category_path)))
             category_to_word_count_hierarchy = category_to_word_count[dep_list].sum(axis=0)  # 将父分类的文本集也算入子分类中
             for v in range(vocab_size):
-                p_w_c_k[v, c, k] = (1.0 + category_to_word_count_hierarchy[0, v]) / (vocab_size + category_to_word_count_hierarchy.sum())
+                p_w_c_k[v, c, k] = (1.0 + category_to_word_count_hierarchy[v]) / (vocab_size + category_to_word_count_hierarchy.sum())
             category_path = category_path[:-1]
-
     category_to_word_count_root = category_to_word_count.sum(axis=0)
     for v in range(vocab_size):
-        p_w_c_k[v, :, -2] = (1.0 + category_to_word_count_root[0, v]) / (vocab_size + category_to_word_count_root.sum())
+        p_w_c_k[v, :, -2] = (1.0 + category_to_word_count_root[v]) / (vocab_size + category_to_word_count_root.sum())
     p_w_c_k[:, :, -1] = 1.0 / vocab_size
-
-    # function (4)
+    # update p_w_c by function (4)
     for v in range(vocab_size):
-        p_w_c[v] = np.multiply(lambda_matrix, p_w_c_k[v]).sum(axis=1).T
-
+        p_w_c[v] = (lambda_matrix * p_w_c_k[v]).sum(axis=1)
+    # update p_c by function (2)
     for c in range(category_size):
-        p_c[c, 0] = (1 + p_c_d[c].sum()) / (category_size + documents_size)
+        p_c[c] = (1 + p_c_d[c].sum()) / (category_size + documents_size)
 
 
 def expectation_step(document_to_word_count, p_c, p_w_c):
     # 根据本轮P(W|C)和P(C), 更新P(C|D)(公式3)
     # 公式3 中的乘法改为加法
     logging.info("E-step")
-    log_p_d_c = document_to_word_count * np.log(p_w_c)  # shape=(N_documents, N_cate)
-    log_p_c_d = np.log(p_c) + log_p_d_c.T  # shape=(N_cate, N_documents)
+    log_p_d_c = document_to_word_count @ np.log(p_w_c)  # shape=(documents_size, category_size)
+    log_p_c_d = np.log(p_c).reshape(-1, 1) + log_p_d_c.T  # shape=(category_size, documents_size)
     return softmax(log_p_c_d)
 
 
-def softmax(x):
-    # 注意axis=0，对每一个文档的概率分布都减去对应的最大值
-    norm_x = x - x.max(axis=0)
-    return np.exp(norm_x) / np.exp(norm_x).sum(axis=0)
+def expectation_step_with_shrinkage(document_to_word_count, p_c, p_w_c, p_w_c_k, lambda_matrix, beta_matrix):
+    # 根据本轮P(W|C)和P(C), 更新P(C|D)(公式3)
+    # 公式3 中的乘法改为加法
+    logging.info("E-step")
+    # vertical E
+    shrinkage_expectation_step(document_to_word_count, lambda_matrix, beta_matrix, p_w_c_k)
+    # horizontal E
+    log_p_d_c = document_to_word_count @ np.log(p_w_c)  # shape=(documents_size, category_size)
+    log_p_c_d = np.log(p_c).reshape(-1, 1) + log_p_d_c.T  # shape=(category_size, documents_size)
+    return softmax(log_p_c_d)
 
 
 def hierarchical_shrinkage_init(category_tree: Category, document_to_word_count):
@@ -169,12 +172,13 @@ def hierarchical_shrinkage_init(category_tree: Category, document_to_word_count)
     # p_w_c_k = path_matrix * p_w_c
     # 从叶节点到ROOT的最长路径, depth=0表示ROOT节点, depth=max_depth表示叶节点。
     # 在lambda_matrix中, 0列表示叶节点权重, max_depth列表示ROOT节点权重, max_depth+1列表示1/|V|的权重
+    # init λ
     logging.info("初始化shrinkage参数")
     max_depth = Category.get_max_depth(category_tree)
     category_list = category_tree.get_category_list()
     category_size = len(category_list)
-
-    lambda_matrix = np.matrix(np.zeros([category_size, max_depth + 2]))
+    lambda_size = max_depth + 2
+    lambda_matrix = np.zeros([category_size, lambda_size])
     for c, path in enumerate(category_list):
         category_node = category_tree.find_category(path.split("/"))
         depth = category_node.get_depth()
@@ -183,45 +187,40 @@ def hierarchical_shrinkage_init(category_tree: Category, document_to_word_count)
             lambda_matrix[c, k] = init_lambda_val
         lambda_matrix[c, max_depth] = init_lambda_val
         lambda_matrix[c, max_depth+1] = init_lambda_val
-
+    # init β
     documents_size, vocab_size = document_to_word_count.shape
-    beta_matrix = np.zeros([documents_size, vocab_size, category_size, max_depth + 2])
-
-    return lambda_matrix, beta_matrix
-
-
-def shrinkage_maximization_step(category_list, document_to_word_count, lambda_matrix, beta_matrix, p_c_d, p_w_c_k):
-    vocab_size = document_to_word_count.shape[1]
-    category_size, lambda_size = lambda_matrix.shape
-
-    category_to_word_count = p_c_d * document_to_word_count  # shape=(N_cate, N_vocabulary)
+    beta_matrix = np.zeros([documents_size, vocab_size, category_size, lambda_size])  # TODO: 样本数很多时会导致内存溢出
+    # init P^{α}(w|c)
     p_w_c_k = np.zeros([vocab_size, category_size, lambda_size])
+    return lambda_matrix, beta_matrix, p_w_c_k
 
-    for c in tqdm(range(category_size), desc="M-step(with shrinkage)"):
-        category_path = category_list[c].split("/")
-        dep_list = []
-        category_depth = len(category_path)
-        for k in range(category_depth):
-            # 第一层只包含该分类自身, 然后沿着路径一直到ROOT节点(但不包含ROOT节点)
-            dep_list.append(category_list.index("/".join(category_path)))
-            category_to_word_count_hierarchy = category_to_word_count[dep_list].sum(axis=0)  # 将父分类的文本集也算入子分类中
-            for v in range(vocab_size):
-                p_w_c_k[v, c, k] = (1.0 + category_to_word_count_hierarchy[0, v]) / (
-                            vocab_size + category_to_word_count_hierarchy.sum())
-            category_path = category_path[:-1]
 
-    category_to_word_count_root = category_to_word_count.sum(axis=0)
-    for c in range(vocab_size):
-        p_w_c_k[c, :, -2] = (1.0 + category_to_word_count_root[0, c]) / (vocab_size + category_to_word_count_root.sum())
-    p_w_c_k[:, :, -1] = 1.0 / vocab_size
+def shrinkage_maximization_step(lambda_matrix, beta_matrix, p_c_d):
+    # update λ by function(6)
+    documents_size, vocab_size, category_size, lambda_size = beta_matrix.shape
+    for c in tqdm(range(category_size), desc="shrinkage M-step"):
+        for k in range(lambda_size):
+            lambda_val = 0
+            for d in range(documents_size):
+                lambda_val += beta_matrix[d, :, c, k].sum() * p_c_d[c, d]
+            lambda_val /= p_c_d[c].sum()
+            lambda_matrix[c, k] = lambda_val
 
 
 def shrinkage_expectation_step(document_to_word_count, lambda_matrix, beta_matrix, p_w_c_k):
+    # update β by function(5)
     documents_size, vocab_size = document_to_word_count.shape
-    for v in range(vocab_size):
-        p_w_c_alpha = np.multiply(lambda_matrix, p_w_c_k[v])  # shape = (category_size, lambda_size)
+    for v in tqdm(range(vocab_size), desc="shrinkage E-step"):
+        p_w_c_alpha = lambda_matrix * p_w_c_k[v]  # shape = (category_size, lambda_size)
+        p_w_c_alpha = p_w_c_alpha / p_w_c_alpha.sum(axis=1).reshape(-1, 1)
         for d in range(documents_size):
             beta_matrix[d, v] = document_to_word_count[d, v] * p_w_c_alpha
+
+
+def softmax(x):
+    # 注意axis=0，对每一个文档的概率分布都减去对应的最大值
+    norm_x = x - x.max(axis=0)
+    return np.exp(norm_x) / np.exp(norm_x).sum(axis=0)
 
 
 if __name__ == "__main__":
@@ -231,23 +230,22 @@ if __name__ == "__main__":
 
     category_tree = load_category_and_words(word_file)
     documents = load_unlabled_documents(sms_file)
-    # random.shuffle(documents)
-    # documents = documents[:2000]
+    random.shuffle(documents)
+    documents = documents[:2000]
     segs = seg_documents(documents)
     vocabulary, document_to_word_count = preliminary_labeling(category_tree, segs)
-    lambda_matrix = hierarchical_shrinkage_init(category_tree)
     p_c, p_c_d, p_w_c = init_bayes_model(category_tree, documents_size=len(documents), vocab_size=len(vocabulary))
+    lambda_matrix, beta_matrix, p_w_c_k = hierarchical_shrinkage_init(category_tree, document_to_word_count)
     for _i in tqdm(range(5), desc="EM迭代进度"):
         # maximization_step(document_to_word_count, p_c, p_c_d, p_w_c)
-        maximization_step_with_shrinkage(category_tree, document_to_word_count, p_c, p_c_d, p_w_c, lambda_matrix)
-        p_c_d = expectation_step(document_to_word_count, p_c, p_w_c)
+        # p_c_d = expectation_step(document_to_word_count, p_c, p_w_c)
+        maximization_step_with_shrinkage(category_tree, document_to_word_count, p_c, p_c_d, p_w_c, p_w_c_k, lambda_matrix, beta_matrix, _i)
+        p_c_d = expectation_step_with_shrinkage(document_to_word_count, p_c, p_w_c, p_w_c_k, lambda_matrix, beta_matrix)
 
     category_list = category_tree.get_category_list()
-    # fw = open("resources/cropus/18w_sms_result.txt", "w", encoding="utf-8")
-    # for i in range(len(documents)):
-    #     prob = p_c_d[:, i]
-    #     predict_category = category_list[prob.argmax()]
-    #     fw.write(documents[i] + "\t" + predict_category + "\n")
-    # fw.close()
-
-
+    fw = open("resources/cropus/18w_sms_full_shrinkage_result.txt", "w", encoding="utf-8")
+    for i in range(len(documents)):
+        prob = p_c_d[:, i]
+        predict_category = category_list[prob.argmax()]
+        fw.write(documents[i] + "\t" + predict_category + "\n")
+    fw.close()
