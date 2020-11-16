@@ -200,11 +200,7 @@ def shrinkage_maximization_step(lambda_matrix, beta_matrix, p_c_d, beta_matrix_n
     # update λ by function(6)
     documents_size, vocab_size, category_size, lambda_size = beta_matrix.shape
     for c in tqdm(range(category_size), desc="shrinkage M-step"):
-        # lambda_val_new = (beta_matrix[:, :, c, :] * p_c_d[c].reshape(-1, 1, 1)).sum(axis=(0, 1)) / p_c_d[c].sum()
-        # lambda_matrix[c] = lambda_val_new
-        for k in range(lambda_size):
-            lambda_matrix[c, k] = (beta_matrix[:, :, c, k] * p_c_d[c].reshape(-1, 1)).sum() / p_c_d[c].sum()
-    # lambda_matrix = (beta_matrix_new[:, c] * p_c_d[c].reshape(-1, 1)).sum() / p_c_d.sum()
+        lambda_matrix[c] = (beta_matrix[:, :, c, :] * p_c_d[c].reshape(-1, 1, 1)).sum(axis=(0, 1)) / p_c_d[c].sum()
 
 
 def shrinkage_expectation_step(document_to_word_count, lambda_matrix, beta_matrix, p_w_c_k, beta_matrix_new):
@@ -215,6 +211,8 @@ def shrinkage_expectation_step(document_to_word_count, lambda_matrix, beta_matri
         p_w_c_alpha = p_w_c_alpha / p_w_c_alpha.sum(axis=1).reshape(-1, 1)
         for d in range(documents_size):
             beta_matrix[d, v] = document_to_word_count[d, v] * p_w_c_alpha
+
+    # beta_matrix_new[d] = document_to_word_count[d] * p_w_c_alpha
 
 
 def softmax(x):
