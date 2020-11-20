@@ -33,7 +33,6 @@ def preliminary_labeling(category_tree: Category, segs: List[List[str]]):
                 break
         if category is not None:
             category.add_document(i)
-    # TODO: document_vectors转化为ndarray对于开放领域的大语料(文档多，词多), 可能还是造成内存溢出
     return cv.vocabulary_, document_vectors
 
 
@@ -90,7 +89,6 @@ def maximization_step_with_shrinkage(category_tree: Category, document_vectors, 
         shrinkage_maximization_step(lambda_matrix, beta_matrix, p_c_d)
     # horizontal M
     # update P^{α}(w|c)
-    # TODO: 需要优化, 在下面的遍历中p_c_d只需要取出用得到的类别即可, ROOT节点可以单独算, 不要做full size的矩阵乘法
     for c in tqdm(range(category_size), desc="Horizontal M-step"):
         category_path = category_list[c].split("/")
         dep_list = []
@@ -183,8 +181,8 @@ def shrinkage_expectation_step(document_vectors, lambda_matrix, beta_matrix, p_w
 
 
 if __name__ == "__main__":
-    word_file = "resources/dict/words_18w.txt"
-    sms_file = "resources/cropus/18w_sms.txt"
+    word_file = "resources/dict/words_toutiao_news.txt"
+    sms_file = "resources/cropus/toutiao_news_corpus.txt"
     logging.basicConfig(level=logging.INFO)
 
     category_tree = utils.load_seed_keywords(word_file)
@@ -200,7 +198,7 @@ if __name__ == "__main__":
         p_c_d = expectation_step_with_shrinkage(document_vectors, p_c, p_w_c, p_w_c_k, lambda_matrix, beta_matrix)
 
     category_list = category_tree.get_category_list()
-    fw = open("resources/cropus/18w_sms_full_shrinkage_result_iter10.txt", "w", encoding="utf-8")
+    fw = open("resources/cropus/toutiao_news_result.txt", "w", encoding="utf-8")
     for i in range(len(documents)):
         prob = p_c_d[:, i]
         predict_category = category_list[prob.argmax()]
