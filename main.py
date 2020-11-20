@@ -22,7 +22,7 @@ def preliminary_labeling(category_tree: Category, segs: List[List[str]]):
     :return: 返回单词索引表({word: index})和文档词频矩阵(documents_size, vocab_size)
     """
     # 默认的token_pattern会过滤掉单字
-    cv = CountVectorizer(analyzer="word", max_df=0.8, min_df=0.001, token_pattern=r"(?u)\b\w\w+\b")
+    cv = CountVectorizer(analyzer="word", max_df=0.8, min_df=0.0001, token_pattern=r"(?u)\b\w\w+\b")
     logging.info("初始化单词-文档计数矩阵")
     document_vectors = cv.fit_transform([" ".join(seg) for seg in segs])  # csr_matrix
     for i, seg in tqdm(enumerate(segs), desc="文档预标注"):
@@ -33,7 +33,7 @@ def preliminary_labeling(category_tree: Category, segs: List[List[str]]):
                 break
         if category is not None:
             category.add_document(i)
-
+    # TODO: document_vectors转化为ndarray对于开放领域的大语料(文档多，词多), 可能还是造成内存溢出
     return cv.vocabulary_, document_vectors.toarray()
 
 
@@ -90,7 +90,7 @@ def maximization_step_with_shrinkage(category_tree: Category, document_vectors, 
         shrinkage_maximization_step(lambda_matrix, beta_matrix, p_c_d)
     # horizontal M
     # update P^{α}(w|c)
-    category_vectors = p_c_d @ document_vectors  # shape=(category_size, vocab_size)
+    # TODO: 需要优化, 在下面的遍历中p_c_d只需要取出用得到的类别即可, ROOT节点可以单独算, 不要做full size的矩阵乘法
     for c in tqdm(range(category_size), desc="Horizontal M-step"):
         category_path = category_list[c].split("/")
         dep_list = []
@@ -98,13 +98,18 @@ def maximization_step_with_shrinkage(category_tree: Category, document_vectors, 
         for k in range(category_depth):
             # 第一层为该类自身, 然后沿着层级直到ROOT(不包含ROOT)
             dep_list.append(category_list.index("/".join(category_path)))
-            category_vector_hierarchy = category_vectors[dep_list].sum(axis=0)  # 将父分类的文本集也算入子分类中
+            category_vectors = p_c_d[dep_list] @ document_vectors  # 只需取出包含的类别
+            if category_vectors.ndim == 1:
+                category_vectors = category_vectors.reshape(1, -1)
+            category_vector_hierarchy = category_vectors.sum(axis=0)  # 将父分类的文本集也算入子分类中
+            category_vector_hierarchy_sum = category_vector_hierarchy.sum()
             for v in range(vocab_size):
-                p_w_c_k[v, c, k] = (1.0 + category_vector_hierarchy[v]) / (vocab_size + category_vector_hierarchy.sum())
+                p_w_c_k[v, c, k] = (1.0 + category_vector_hierarchy[v]) / (vocab_size + category_vector_hierarchy_sum)
             category_path = category_path[:-1]
-    category_vector_root = category_vectors.sum(axis=0)
+    category_vector_root = document_vectors.sum(axis=0)
+    category_vector_root_sum = document_vectors.sum()
     for v in range(vocab_size):
-        p_w_c_k[v, :, -2] = (1.0 + category_vector_root[v]) / (vocab_size + category_vector_root.sum())
+        p_w_c_k[v, :, -2] = (1.0 + category_vector_root[v]) / (vocab_size + category_vector_root_sum)
     p_w_c_k[:, :, -1] = 1.0 / vocab_size
     # update p_w_c by function(4)
     for v in range(vocab_size):
@@ -173,8 +178,8 @@ def shrinkage_expectation_step(document_vectors, lambda_matrix, beta_matrix, p_w
         for v in document_vector_nonzero[0]:
             p_w_c_alpha = lambda_matrix * p_w_c_k[v]  # shape = (category_size, lambda_size)
             p_w_c_alpha = p_w_c_alpha / p_w_c_alpha.sum(axis=1).reshape(-1, 1)
+            p_w_c_alpha /= document_vector_nonzero[0].shape[0]  # 公式6中分母上的K, 提前放在这里
             beta_matrix[d] += p_w_c_alpha
-        beta_matrix[d] = beta_matrix[d] / document_vector_nonzero[0].shape[0]  # 公式6中分母上的K, 提前放在这里
 
 
 if __name__ == "__main__":
@@ -190,7 +195,7 @@ if __name__ == "__main__":
     lambda_matrix, beta_matrix, p_w_c_k = hierarchical_shrinkage_init(category_tree, document_vectors)
     for _i in range(5):
         # TODO: 增加原文中根据收敛情况终止迭代的设计
-        logging.info("EM迭代进度: {}/{}".format(_i, 10))
+        logging.info("EM迭代进度: {}/{}".format(_i, 5))
         maximization_step_with_shrinkage(category_tree, document_vectors, p_c, p_c_d, p_w_c, p_w_c_k, lambda_matrix, beta_matrix, _i)
         p_c_d = expectation_step_with_shrinkage(document_vectors, p_c, p_w_c, p_w_c_k, lambda_matrix, beta_matrix)
 

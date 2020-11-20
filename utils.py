@@ -49,7 +49,9 @@ def word_segment(documents: List[str]) -> List[List[str]]:
     """
     segs = []
     for text in tqdm(documents, desc="样本集预分词"):
-        text = text.strip().split("\t")[-1]
+        # text = text.strip().split("\t")[-1]
+        text = text.strip().split("\t", 1)[-1]  # for toutiao news
+        text = text.replace("\t", " ")
         seg = list(jieba.cut(text))
         segs.append(seg)
     return segs
