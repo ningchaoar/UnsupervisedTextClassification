@@ -19,7 +19,7 @@ def preliminary_labeling(category_tree: Category, segs: List[List[str]]):
     遍历文档，根据初始关键词做预标注, 同时得到文档-词频表
     :param category_tree: 分类树根节点
     :param segs: 文档集分词结果
-    :return: 返回单词索引表({word: index})和文档词频矩阵(documents_size, vocab_size)
+    :return: 返回单词索引表({word: index})和文档词频矩阵(documents_size, vocab_size), type='csr_matrix'
     """
     # 默认的token_pattern会过滤掉单字
     cv = CountVectorizer(analyzer="word", max_df=0.8, min_df=0.0001, token_pattern=r"(?u)\b\w\w+\b")
@@ -34,7 +34,7 @@ def preliminary_labeling(category_tree: Category, segs: List[List[str]]):
         if category is not None:
             category.add_document(i)
     # TODO: document_vectors转化为ndarray对于开放领域的大语料(文档多，词多), 可能还是造成内存溢出
-    return cv.vocabulary_, document_vectors.toarray()
+    return cv.vocabulary_, document_vectors
 
 
 def init_bayes_model(category_tree: Category, documents_size: int, vocab_size: int):
@@ -109,7 +109,7 @@ def maximization_step_with_shrinkage(category_tree: Category, document_vectors, 
     category_vector_root = document_vectors.sum(axis=0)
     category_vector_root_sum = document_vectors.sum()
     for v in range(vocab_size):
-        p_w_c_k[v, :, -2] = (1.0 + category_vector_root[v]) / (vocab_size + category_vector_root_sum)
+        p_w_c_k[v, :, -2] = (1.0 + category_vector_root[0, v]) / (vocab_size + category_vector_root_sum)  # category_vector_root.ndim=2
     p_w_c_k[:, :, -1] = 1.0 / vocab_size
     # update p_w_c by function(4)
     for v in range(vocab_size):
@@ -175,10 +175,10 @@ def shrinkage_expectation_step(document_vectors, lambda_matrix, beta_matrix, p_w
     documents_size, vocab_size = document_vectors.shape
     for d in tqdm(range(documents_size), desc="Vertical E-step"):
         document_vector_nonzero = document_vectors[d].nonzero()  # 只要求出该文档非零词的索引即可，词频不为零则词频会约掉，词频为零则无必要去求
-        for v in document_vector_nonzero[0]:
+        for v in document_vector_nonzero[1]:  # document_vectors[d]依然是二维，因此这里索引值1才对应单词索引
             p_w_c_alpha = lambda_matrix * p_w_c_k[v]  # shape = (category_size, lambda_size)
             p_w_c_alpha = p_w_c_alpha / p_w_c_alpha.sum(axis=1).reshape(-1, 1)
-            p_w_c_alpha /= document_vector_nonzero[0].shape[0]  # 公式6中分母上的K, 提前放在这里
+            p_w_c_alpha /= document_vector_nonzero[1].shape[0]  # 公式6中分母上的K, 提前放在这里
             beta_matrix[d] += p_w_c_alpha
 
 
