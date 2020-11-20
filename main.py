@@ -2,7 +2,7 @@
 # -*- coding:utf-8 -*-
 # @Author  : ningchao
 # @Time    : 20/11/7 15:58
-# TODO: 优化命名, 优化项目结构, 优化内存和效率
+# TODO: 优化命名, 优化项目结构, 完善注释, 优化内存和效率
 import utils
 import logging
 import numpy as np
@@ -80,7 +80,7 @@ def maximization_step(document_to_word_count, p_c, p_c_d, p_w_c):
     category_size = p_c.shape[0]
     documents_size = document_to_word_count.shape[0]  # 原论文documents_size = |D| + |H|
     vocab_size = document_to_word_count.shape[1]
-    for c in tqdm(range(category_size), desc="M-step"):
+    for c in tqdm(range(category_size), desc="Horizontal M-step"):
         for v in range(vocab_size):
             p_w_c[v, c] = (1 + category_to_word_count[c, v]) / (vocab_size + category_to_word_count[c].sum())
     for c in range(category_size):
@@ -179,8 +179,8 @@ def shrinkage_expectation_step(document_to_word_count, lambda_matrix, beta_matri
         for v in document_to_word_count_nonzero[0]:
             p_w_c_alpha = lambda_matrix * p_w_c_k[v]  # shape = (category_size, lambda_size)
             p_w_c_alpha = p_w_c_alpha / p_w_c_alpha.sum(axis=1).reshape(-1, 1)
-            p_w_c_alpha /= document_to_word_count_nonzero[0].shape[0]  # 公式6中分母上的K, 提前放在这里
             beta_matrix[d] += p_w_c_alpha
+        beta_matrix[d] = beta_matrix[d] / document_to_word_count_nonzero[0].shape[0]  # 公式6中分母上的K, 提前放在这里
 
 
 if __name__ == "__main__":
@@ -188,7 +188,7 @@ if __name__ == "__main__":
     sms_file = "resources/cropus/18w_sms.txt"
     logging.basicConfig(level=logging.INFO)
 
-    category_tree = utils.build_category_tree(word_file)
+    category_tree = utils.load_seed_keywords(word_file)
     documents = utils.load_data(sms_file)
     segs = utils.word_segment(documents)
     vocabulary, document_to_word_count = preliminary_labeling(category_tree, segs)

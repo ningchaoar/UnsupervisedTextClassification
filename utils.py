@@ -10,15 +10,15 @@ from tqdm import tqdm
 from category import Category
 
 
-def build_category_tree(seed_keywords_file: str) -> Category:
+def load_seed_keywords(keywords_file: str) -> Category:
     """
     获取初始关键词, 并构建分类树
-    :param seed_keywords_file: 关键词文件路径
+    :param keywords_file: 关键词文件路径
     :return: 分类树root节点
     """
     category = Category("ROOT")
     category_list = []
-    with open(seed_keywords_file, "r", encoding="utf-8") as fr:
+    with open(keywords_file, "r", encoding="utf-8") as fr:
         for line in fr:
             categories, words = line.strip().split("\t")
             category_list.append(categories)

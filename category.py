@@ -3,6 +3,7 @@
 # @Author  : ningchao
 # @Time    : 20/11/9 10:19
 from typing import *
+from collections import OrderedDict
 
 
 class Category:
@@ -10,7 +11,7 @@ class Category:
         self.name = name
         self.depth = 0
         self.parent = None
-        self.childs = {}  # dict in python>=3.7 is guaranteed to preserve order and is more performant than OrderedDict.
+        self.childs = OrderedDict()  # 使用OrderedDict以兼容python<=3.5
         self.keywords = set()
         self.documents = set()  # 存储文本索引
         self.category_list = None
