@@ -16,14 +16,14 @@ from sklearn.feature_extraction.text import CountVectorizer
 def preliminary_labeling(category_tree: Category, segs: List[List[str]]):
     """
     TODO: 应支持自定义的预标注逻辑, 或读取预标注结果
-    遍历文档，根据初始关键词做预标注, 同时得到文档-词频表
+    遍历文档，根据初始关键词做预标注, 同时得到文档词频矩阵
     :param category_tree: 分类树根节点
     :param segs: 文档集分词结果
     :return: 返回单词索引表({word: index})和文档词频矩阵(documents_size, vocab_size), type='csr_matrix'
     """
     # 默认的token_pattern会过滤掉单字
     cv = CountVectorizer(analyzer="word", max_df=0.8, min_df=0.0001, token_pattern=r"(?u)\b\w\w+\b")
-    logging.info("初始化单词-文档计数矩阵")
+    logging.info("初始化文档词频矩阵")
     document_vectors = cv.fit_transform([" ".join(seg) for seg in segs])  # csr_matrix
     for i, seg in tqdm(enumerate(segs), desc="文档预标注"):
         category = None
@@ -130,12 +130,16 @@ def expectation_step_with_shrinkage(document_vectors, p_c, p_w_c, p_w_c_k, lambd
 
 
 def hierarchical_shrinkage_init(category_tree: Category, document_vectors):
-    # 构建一个lambda矩阵, 行为分类索引，列为分类树最大深度, 元素取值范围[0, 1], 每行求和等于1
-    # 最后, 每个分类的p_w_c都通过矩阵乘法获得, 修正后的p_w_c = lambda @ p_w_c_k (公式4)
-    # p_w_c_k = path_matrix * p_w_c
-    # 从叶节点到ROOT的最长路径, depth=0表示ROOT节点, depth=max_depth表示叶节点。
-    # 在lambda_matrix中, 0列表示叶节点权重, max_depth列表示ROOT节点权重, max_depth+1列表示1/|V|的权重
-    # init λ
+    """
+    shrinkage步骤利用分类的层次关系来缓解特征稀疏的问题
+    1/|V|(λ4) <- ROOT(λ3) <- 新闻(λ2) <- 国际新闻(λ1) <- 经济新闻(λ0)
+    按层次关系将父分类词的概率加权后累加在子分类上
+    :param category_tree: 分类树root节点
+    :param document_vectors: 文档词频矩阵
+    :return: λ -> (category_size, max_depth + 2)
+             β -> (documents_size, category_size, max_depth + 2)
+             P^{α}(W|C) -> (vocab_size, category_size, max_depth + 2)
+    """
     logging.info("初始化shrinkage参数")
     max_depth = Category.get_max_depth(category_tree)
     category_list = category_tree.get_category_list()
@@ -153,7 +157,7 @@ def hierarchical_shrinkage_init(category_tree: Category, document_vectors):
     # init β
     documents_size, vocab_size = document_vectors.shape
     beta_matrix = np.zeros([documents_size, category_size, lambda_size])
-    # init P^{α}(w|c)
+    # init P^{α}(W|C)
     p_w_c_k = np.zeros([vocab_size, category_size, lambda_size])
     return lambda_matrix, beta_matrix, p_w_c_k
 
@@ -172,11 +176,11 @@ def shrinkage_expectation_step(document_vectors, lambda_matrix, beta_matrix, p_w
     # 更新β function(5)
     documents_size, vocab_size = document_vectors.shape
     for d in tqdm(range(documents_size), desc="Vertical E-step"):
-        document_vector_nonzero = document_vectors[d].nonzero()  # 只要求出该文档非零词的索引即可，词频不为零则词频会约掉，词频为零则无必要去求
-        for v in document_vector_nonzero[1]:  # document_vectors[d]依然是二维，因此这里索引值1才对应单词索引
+        document_vector_nonzero = document_vectors[d].nonzero()  # 获取该文档非零词频的索引
+        for v in document_vector_nonzero[1]:  # 注意document_vectors[d]是二维，因此这里索引值1才对应单词索引
             p_w_c_alpha = lambda_matrix * p_w_c_k[v]  # shape = (category_size, lambda_size)
             p_w_c_alpha = p_w_c_alpha / p_w_c_alpha.sum(axis=1).reshape(-1, 1)
-            p_w_c_alpha /= document_vector_nonzero[1].shape[0]  # 公式6中分母上的K, 提前放在这里
+            p_w_c_alpha /= document_vector_nonzero[1].shape[0]  # 公式6分母上的Σk
             beta_matrix[d] += p_w_c_alpha
 
 
