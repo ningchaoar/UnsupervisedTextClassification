@@ -2,7 +2,6 @@
 # -*- coding:utf-8 -*-
 # @Author  : ningchao
 # @Time    : 20/11/7 15:58
-# TODO: 优化命名, 优化项目结构, 完善注释, 优化内存和效率
 # TODO: 增加模型保存和预测接口
 import utils
 import logging
@@ -15,7 +14,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 
 def preliminary_labeling(category_tree: Category, segs: List[List[str]]):
     """
-    TODO: 应支持自定义的预标注逻辑, 或读取预标注结果
+    TODO: 应支持自定义的预标注规则, 或读取预标注结果
     遍历文档，根据初始关键词做预标注, 同时得到文档词频矩阵
     :param category_tree: 分类树根节点
     :param segs: 文档集分词结果
@@ -25,7 +24,8 @@ def preliminary_labeling(category_tree: Category, segs: List[List[str]]):
     cv = CountVectorizer(analyzer="word", max_df=0.8, min_df=0.0001, token_pattern=r"(?u)\b\w\w+\b")
     logging.info("初始化文档词频矩阵")
     document_vectors = cv.fit_transform([" ".join(seg) for seg in segs])  # csr_matrix
-    for i, seg in tqdm(enumerate(segs), desc="文档预标注"):
+    logging.info("文档预标注")
+    for i, seg in tqdm(enumerate(segs)):
         category = None
         for word in seg:
             category = category_tree.find_category_by_word(word)
@@ -52,7 +52,8 @@ def init_bayes_model(category_tree: Category, documents_size: int, vocab_size: i
     category_document_cond_probability = np.zeros(([documents_size, category_size]))  # 文档条件概率P(C|D)
 
     # 根据预标注结果初始化P(C)和P(C|D)
-    for c, category in tqdm(enumerate(category_list), desc="模型初始化"):
+    logging.info("参数初始化")
+    for c, category in tqdm(enumerate(category_list)):
         category_path = category.split("/")
         category_documents = category_tree.find_category(category_path).get_documents()
         for document_index in category_documents:
@@ -61,18 +62,19 @@ def init_bayes_model(category_tree: Category, documents_size: int, vocab_size: i
 
     category_document_cond_probability = category_document_cond_probability.T  # 转置便于矩阵乘法
     word_category_cond_probability = np.zeros([vocab_size, len(category_list)])
-    logging.info("总计{}/{}条文档得到预标注".format(int(category_document_cond_probability.sum()), documents_size))
+    logging.info("预标注比例: {}/{}".format(int(category_document_cond_probability.sum()), documents_size))
 
     return category_prior_probability, category_document_cond_probability, word_category_cond_probability
 
 
 def maximization_step(document_vectors, p_c, p_c_d, p_w_c):
     # E-step更新P(C|D)后, 在M-step中更新P(W|C)(公式1)和P(C)(公式2)
+    logging.info("Horizontal M-step")
     category_vectors = p_c_d @ document_vectors  # shape=(category_size, vocab_size)
     category_size = p_c.shape[0]
     documents_size = document_vectors.shape[0]  # 原论文documents_size = |D| + |H|
     vocab_size = document_vectors.shape[1]
-    for c in tqdm(range(category_size), desc="Horizontal M-step"):
+    for c in tqdm(range(category_size)):
         for v in range(vocab_size):
             p_w_c[v, c] = (1 + category_vectors[c, v]) / (vocab_size + category_vectors[c].sum())
     for c in range(category_size):
@@ -89,7 +91,8 @@ def maximization_step_with_shrinkage(category_tree: Category, document_vectors, 
         shrinkage_maximization_step(lambda_matrix, beta_matrix, p_c_d)
     # horizontal M
     # update P^{α}(w|c)
-    for c in tqdm(range(category_size), desc="Horizontal M-step"):
+    logging.info("Horizontal M-step")
+    for c in tqdm(range(category_size)):
         category_path = category_list[c].split("/")
         dep_list = []
         category_depth = len(category_path)
@@ -164,8 +167,9 @@ def hierarchical_shrinkage_init(category_tree: Category, document_vectors):
 
 def shrinkage_maximization_step(lambda_matrix, beta_matrix, p_c_d):
     # 更新λ function(6)
+    logging.info("Vertical M-step")
     documents_size, category_size, lambda_size = beta_matrix.shape
-    for c in tqdm(range(category_size), desc="Vertical M-step"):
+    for c in tqdm(range(category_size)):
         norm_val = p_c_d[c].sum()
         for k in range(lambda_size):
             lambda_matrix[c, k] = beta_matrix[:, c, k] @ p_c_d[c]
@@ -174,8 +178,9 @@ def shrinkage_maximization_step(lambda_matrix, beta_matrix, p_c_d):
 
 def shrinkage_expectation_step(document_vectors, lambda_matrix, beta_matrix, p_w_c_k):
     # 更新β function(5)
+    logging.info("Vertical E-step")
     documents_size, vocab_size = document_vectors.shape
-    for d in tqdm(range(documents_size), desc="Vertical E-step"):
+    for d in tqdm(range(documents_size)):
         document_vector_nonzero = document_vectors[d].nonzero()  # 获取该文档非零词频的索引
         for v in document_vector_nonzero[1]:  # 注意document_vectors[d]是二维，因此这里索引值1才对应单词索引
             p_w_c_alpha = lambda_matrix * p_w_c_k[v]  # shape = (category_size, lambda_size)
@@ -184,27 +189,31 @@ def shrinkage_expectation_step(document_vectors, lambda_matrix, beta_matrix, p_w
             beta_matrix[d] += p_w_c_alpha
 
 
-if __name__ == "__main__":
-    word_file = "resources/dict/words_toutiao_news.txt"
-    sms_file = "resources/cropus/toutiao_news_corpus.txt"
-    logging.basicConfig(level=logging.INFO)
-
+def main(word_file, sms_file, result_file, max_iters):
     category_tree = utils.load_seed_keywords(word_file)
-    documents = utils.load_data(sms_file)
-    segs = utils.word_segment(documents)
+    datas = utils.load_data(sms_file)
+    segs = utils.word_segment(datas)
     vocabulary, document_vectors = preliminary_labeling(category_tree, segs)
-    p_c, p_c_d, p_w_c = init_bayes_model(category_tree, documents_size=len(documents), vocab_size=len(vocabulary))
+    p_c, p_c_d, p_w_c = init_bayes_model(category_tree, documents_size=len(datas), vocab_size=len(vocabulary))
     lambda_matrix, beta_matrix, p_w_c_k = hierarchical_shrinkage_init(category_tree, document_vectors)
-    for _i in range(5):
+    for _i in range(max_iters):
         # TODO: 增加原文中根据收敛情况终止迭代的设计
-        logging.info("EM迭代进度: {}/{}".format(_i, 5))
+        logging.info("EM迭代进度: {}/{}".format(_i, max_iters))
         maximization_step_with_shrinkage(category_tree, document_vectors, p_c, p_c_d, p_w_c, p_w_c_k, lambda_matrix, beta_matrix, _i)
         p_c_d = expectation_step_with_shrinkage(document_vectors, p_c, p_w_c, p_w_c_k, lambda_matrix, beta_matrix)
 
     category_list = category_tree.get_category_list()
-    fw = open("resources/cropus/toutiao_news_result.txt", "w", encoding="utf-8")
-    for i in range(len(documents)):
+    fw = open(result_file, "w", encoding="utf-8")
+    for i in range(len(datas)):
         prob = p_c_d[:, i]
         predict_category = category_list[prob.argmax()]
-        fw.write(documents[i] + "\t" + predict_category + "\n")
+        fw.write(datas[i] + "\t" + predict_category + "\n")
     fw.close()
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    main(word_file="resources/dict/words_toutiao_news.txt",
+         sms_file="resources/cropus/toutiao_cat_data.txt",
+         result_file="resources/cropus/toutiao_cat_data_result.txt",
+         max_iters=5)

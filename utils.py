@@ -32,27 +32,26 @@ def load_seed_keywords(keywords_file: str) -> Category:
 
 def load_data(file: str) -> List[str]:
     """
-    读取待分类样本集
-    :param file: 样本文件路径
-    :return: list of document
+    读取待分类数据集
+    :param file: 文件路径
+    :return:
     """
     with open(file, "r", encoding="utf-8") as fr:
-        documents = [line.strip() for line in fr]
-    return documents
+        datas = [line.strip() for line in fr]
+    return datas
 
 
-def word_segment(documents: List[str]) -> List[List[str]]:
+def word_segment(datas: List[str]) -> List[List[str]]:
     """
-    TODO: 加入自定义分词器
+    对原始文档分词, 根据数据集格式调整这里的处理, 确保对内容进行分词
     :param documents: list of document
     :return: list of seged document
     """
     segs = []
-    for text in tqdm(documents, desc="样本集预分词"):
-        # text = text.strip().split("\t")[-1]
-        text = text.strip().split("\t", 1)[-1]  # for toutiao news
-        text = text.replace("\t", " ")
-        seg = list(jieba.cut(text))
+    for data in tqdm(datas, desc="文档集预分词"):
+        document = data.split("_!_", 3)[-1]
+        document = document.replace("_!_", " ")
+        seg = list(jieba.cut(document))
         segs.append(seg)
     return segs
 
