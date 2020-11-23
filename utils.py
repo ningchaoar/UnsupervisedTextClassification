@@ -2,7 +2,9 @@
 # -*- coding:utf-8 -*-
 # @Author  : ningchao
 # @Time    : 20/11/19 16:35
+import os
 import jieba
+import pickle
 import logging
 import numpy as np
 from typing import *
@@ -60,3 +62,37 @@ def softmax(x):
     # 对log_p_c_d做归一化, 故取axis=0
     norm_x = x - x.max(axis=0)
     return np.exp(norm_x) / np.exp(norm_x).sum(axis=0)
+
+
+def save_model(model_dir: str, vocabulary: Dict[str, int], p_c: 'np.ndarray', p_w_c: 'np.ndarray'):
+    """
+    保存模型
+    :param model_dir: 模型保存目录, 如目录非空则覆盖旧模型
+    :param vocabulary: CountVectorizer词典
+    :param p_c: P(C)
+    :param p_w_c: P(W|C)
+    :return:
+    """
+    if not model_dir.endswith("/"):
+        model_dir += "/"
+    if not os.path.exists(model_dir):
+        os.mkdir(model_dir)
+    with open(model_dir + "vocab.pkl", "wb") as fw:
+        pickle.dump(vocabulary, fw)
+    np.save(model_dir + "category_prob.npy", p_c)
+    np.save(model_dir + "word_prob.npy", p_w_c)
+    logging.info("模型保存成功")
+
+
+def load_model(model_dir: str):
+    """
+    读取模型
+    :param model_dir: 模型保存目录
+    :return: 词典, P(C), P(W|C)
+    """
+    with open(model_dir + "vocab.pkl", "rb") as fr:
+        vocabulary = pickle.load(fr)
+    p_c = np.load(model_dir + "category_prob.npy")
+    p_w_c = np.load(model_dir + "word_prob.npy")
+
+    return vocabulary, p_c, p_w_c

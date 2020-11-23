@@ -189,7 +189,7 @@ def shrinkage_expectation_step(document_vectors, lambda_matrix, beta_matrix, p_w
             beta_matrix[d] += p_w_c_alpha
 
 
-def main(word_file, sms_file, result_file, max_iters):
+def main(word_file, sms_file, result_file, model_save_path=None, max_iters=5):
     category_tree = utils.load_seed_keywords(word_file)
     datas = utils.load_data(sms_file)
     segs = utils.word_segment(datas)
@@ -197,7 +197,6 @@ def main(word_file, sms_file, result_file, max_iters):
     p_c, p_c_d, p_w_c = init_bayes_model(category_tree, documents_size=len(datas), vocab_size=len(vocabulary))
     lambda_matrix, beta_matrix, p_w_c_k = hierarchical_shrinkage_init(category_tree, document_vectors)
     for _i in range(max_iters):
-        # TODO: 增加原文中根据收敛情况终止迭代的设计
         logging.info("EM迭代进度: {}/{}".format(_i, max_iters))
         maximization_step_with_shrinkage(category_tree, document_vectors, p_c, p_c_d, p_w_c, p_w_c_k, lambda_matrix, beta_matrix, _i)
         p_c_d = expectation_step_with_shrinkage(document_vectors, p_c, p_w_c, p_w_c_k, lambda_matrix, beta_matrix)
@@ -210,10 +209,14 @@ def main(word_file, sms_file, result_file, max_iters):
         fw.write(datas[i] + "\t" + predict_category + "\n")
     fw.close()
 
+    if model_save_path is not None:
+        utils.save_model(model_save_path, vocabulary, p_c, p_w_c)
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     main(word_file="resources/dict/words_toutiao_news.txt",
          sms_file="resources/cropus/toutiao_cat_data.txt",
          result_file="resources/cropus/toutiao_cat_data_result.txt",
+         model_save_path="resources/model/toutiao_news_model",
          max_iters=5)
