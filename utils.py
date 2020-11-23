@@ -45,8 +45,8 @@ def load_data(file: str) -> List[str]:
 
 def word_segment(datas: List[str]) -> List[List[str]]:
     """
-    对原始文档分词, 根据数据集格式调整这里的处理, 确保对内容进行分词
-    :param documents: list of document
+    对原始文档分词, 根据数据集格式调整这里的处理方式, 确保对文本进行分词
+    :param datas: list of document
     :return: list of seged document
     """
     segs = []
@@ -64,13 +64,14 @@ def softmax(x):
     return np.exp(norm_x) / np.exp(norm_x).sum(axis=0)
 
 
-def save_model(model_dir: str, vocabulary: Dict[str, int], p_c: 'np.ndarray', p_w_c: 'np.ndarray'):
+def save_model(model_dir: str, vocabulary: Dict[str, int], p_c: np.ndarray, p_w_c: np.ndarray, labels: List[str]):
     """
     保存模型
     :param model_dir: 模型保存目录, 如目录非空则覆盖旧模型
     :param vocabulary: CountVectorizer词典
     :param p_c: P(C)
     :param p_w_c: P(W|C)
+    :param labels: category list
     :return:
     """
     if not model_dir.endswith("/"):
@@ -81,6 +82,9 @@ def save_model(model_dir: str, vocabulary: Dict[str, int], p_c: 'np.ndarray', p_
         pickle.dump(vocabulary, fw)
     np.save(model_dir + "category_prob.npy", p_c)
     np.save(model_dir + "word_prob.npy", p_w_c)
+    with open(model_dir + "labels.txt", "w", encoding="utf-8") as fw:
+        for l in labels:
+            fw.write(l + "\n")
     logging.info("模型保存成功")
 
 
@@ -88,11 +92,15 @@ def load_model(model_dir: str):
     """
     读取模型
     :param model_dir: 模型保存目录
-    :return: 词典, P(C), P(W|C)
+    :return: 词典, P(C), P(W|C), category list
     """
+    if not model_dir.endswith("/"):
+        model_dir += "/"
     with open(model_dir + "vocab.pkl", "rb") as fr:
         vocabulary = pickle.load(fr)
     p_c = np.load(model_dir + "category_prob.npy")
     p_w_c = np.load(model_dir + "word_prob.npy")
+    with open(model_dir + "labels.txt", "r", encoding="utf-8") as fr:
+        labels = [line.strip() for line in fr]
 
-    return vocabulary, p_c, p_w_c
+    return vocabulary, p_c, p_w_c, labels

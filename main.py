@@ -2,7 +2,6 @@
 # -*- coding:utf-8 -*-
 # @Author  : ningchao
 # @Time    : 20/11/7 15:58
-# TODO: 增加模型保存和预测接口
 import utils
 import logging
 import numpy as np
@@ -210,7 +209,7 @@ def main(word_file, sms_file, result_file, model_save_path=None, max_iters=5):
     fw.close()
 
     if model_save_path is not None:
-        utils.save_model(model_save_path, vocabulary, p_c, p_w_c)
+        utils.save_model(model_save_path, vocabulary, p_c, p_w_c, category_list)
 
 
 if __name__ == "__main__":
