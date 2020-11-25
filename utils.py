@@ -79,7 +79,7 @@ def save_model(model_dir: str, vocabulary: Dict[str, int], p_c: np.ndarray, p_w_
     if not model_dir.endswith("/"):
         model_dir += "/"
     if not os.path.exists(model_dir):
-        os.mkdir(model_dir)
+        os.makedirs(model_dir)
     with open(model_dir + "vocab.pkl", "wb") as fw:
         pickle.dump(vocabulary, fw)
     np.save(model_dir + "category_prob.npy", p_c)
