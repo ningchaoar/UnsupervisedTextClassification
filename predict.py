@@ -24,5 +24,5 @@ class Classifier:
 
 if __name__ == "__main__":
     cls = Classifier("resources/model/toutiao_news_model")
-    res = cls.predict_text("国家卫健委部署各地毫不放松抓好冬春季疫情防控工作")
+    res = cls.predict_text("世界互联网大会，互联网发展论坛圆满闭幕")
     print(res)

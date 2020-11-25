@@ -164,16 +164,3 @@ class Category:
             return self
 
         return None
-
-
-if __name__ == "__main__":
-    root = Category("ROOT")
-    root.add_category(["运营商", "流量提醒", "流量不足"])
-    root.add_category(["运营商", "流量提醒", "流量优惠"])
-    root.add_category(["运营商", "5G场景"])
-    root.add_category(["银行"])
-    root.add_category(["银行", "交易提醒"])
-    root.add_category(["火车票", "购票提醒"])
-    root.add_category(["火车票", "交易提醒"])
-    print(root)
-    print(Category.get_max_depth(root))
