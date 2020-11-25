@@ -23,6 +23,8 @@ def preliminary_labeling(category_tree: Category, segs: List[List[str]]):
     cv = CountVectorizer(analyzer="word", max_df=0.8, min_df=0.0001, token_pattern=r"(?u)\b\w\w+\b")
     logging.info("初始化文档词频矩阵")
     document_vectors = cv.fit_transform([" ".join(seg) for seg in segs])  # csr_matrix
+    vocabulary = cv.vocabulary_
+    logging.info("词典大小: {}".format(len(vocabulary)))
     logging.info("文档预标注")
     for i, seg in tqdm(enumerate(segs)):
         category = None
@@ -32,7 +34,7 @@ def preliminary_labeling(category_tree: Category, segs: List[List[str]]):
                 break
         if category is not None:
             category.add_document(i)
-    return cv.vocabulary_, document_vectors
+    return vocabulary, document_vectors
 
 
 def init_bayes_model(category_tree: Category, documents_size: int, vocab_size: int):
