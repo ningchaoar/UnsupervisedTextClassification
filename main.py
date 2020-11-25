@@ -20,7 +20,7 @@ def preliminary_labeling(category_tree: Category, segs: List[List[str]]):
     :return: 返回单词索引表({word: index})和文档词频矩阵(documents_size, vocab_size), type='csr_matrix'
     """
     # 默认的token_pattern会过滤掉单字
-    cv = CountVectorizer(analyzer="word", max_df=0.8, min_df=0.0001, token_pattern=r"(?u)\b\w\w+\b")
+    cv = CountVectorizer(analyzer="word", max_df=0.8, min_df=0.00001, token_pattern=r"(?u)\b\w+\b")
     logging.info("初始化文档词频矩阵")
     document_vectors = cv.fit_transform([" ".join(seg) for seg in segs])  # csr_matrix
     vocabulary = cv.vocabulary_
