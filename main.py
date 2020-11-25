@@ -196,7 +196,7 @@ def main(word_file, sms_file, result_file, model_save_path=None, max_iters=5):
     p_c, p_c_d, p_w_c = init_bayes_model(category_tree, documents_size=len(datas), vocab_size=len(vocabulary))
     lambda_matrix, beta_matrix, p_w_c_k = hierarchical_shrinkage_init(category_tree, document_vectors)
     for _i in range(max_iters):
-        logging.info("EM迭代进度: {}/{}".format(_i, max_iters))
+        logging.info("EM迭代进度: {}/{}".format(_i + 1, max_iters))
         maximization_step_with_shrinkage(category_tree, document_vectors, p_c, p_c_d, p_w_c, p_w_c_k, lambda_matrix, beta_matrix, _i)
         p_c_d = expectation_step_with_shrinkage(document_vectors, p_c, p_w_c, p_w_c_k, lambda_matrix, beta_matrix)
 
