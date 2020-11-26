@@ -76,8 +76,9 @@ def maximization_step(document_vectors, p_c, p_c_d, p_w_c):
     documents_size = document_vectors.shape[0]  # 原论文documents_size = |D| + |H|
     vocab_size = document_vectors.shape[1]
     for c in tqdm(range(category_size)):
+        category_vectors_sum = category_vectors[c].sum()
         for v in range(vocab_size):
-            p_w_c[v, c] = (1 + category_vectors[c, v]) / (vocab_size + category_vectors[c].sum())
+            p_w_c[v, c] = (1 + category_vectors[c, v]) / (vocab_size + category_vectors_sum)
     for c in range(category_size):
         p_c[c] = (1.0 + p_c_d[c].sum()) / (category_size + documents_size)
 
