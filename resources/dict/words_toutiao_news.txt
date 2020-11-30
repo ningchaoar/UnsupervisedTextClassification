@@ -1,15 +1,15 @@
-news_story	故事 事件 真实 民间 神话 传说 记录 儿媳 儿子 婆婆 结婚
-news_culture	文化 历史 艺术 哲学 上联 下联 文艺 文学
-news_entertainment	网红 热搜 综艺 明星 演员 奥斯卡 整容
-news_sports	体育 运动 篮球 足球 乒乓球 排球 奥运会
-news_finance	金融 理财 投资 银行 人民币 经济 GDP 资金 货币 融资 财富
-news_house	房子 买房 购房 房产 房价
-news_car	汽车 驾驶 买车 车辆 跑车
-news_edu	教育 学校 大学 课程 教师 高中
-news_tech	科技 科学 技术 电子 互联网 研究 手机 智能 5G 卫星
-news_military	军事 战争 武器 装备 枪械 坦克 战斗机 导弹 潜艇 军舰
-news_travel	旅行 旅游 驴友 自驾游 景点 景区 风景
-news_world	世界 局势 政治 经济 美国 中国 联合国 国际
-stock	股票 炒股 大盘 指数
-news_agriculture	农业 三农 水稻 农村
-news_game	游戏 手游 电脑 战队 电竞
+news_story###故事|事件|真实|民间|神话|传说|记录|儿媳|儿子|婆婆|结婚
+news_culture###文化|历史|艺术|哲学|上联|下联|文艺|文学
+news_entertainment###网红|热搜|综艺|明星|演员|奥斯卡|整容
+news_sports###体育|运动|篮球|足球|乒乓球|排球|奥运会
+news_finance###金融|理财|投资|银行|人民币|经济|GDP|资金|货币|融资|财富
+news_house###房子|买房|购房|房产|房价
+news_car###汽车|驾驶|买车|车辆|跑车
+news_edu###教育|学校|大学|课程|教师|高中
+news_tech###科技|科学|技术|电子|互联网|研究|手机|智能|5G|卫星
+news_military###军事|战争|武器|装备|枪械|坦克|战斗机|导弹|潜艇|军舰
+news_travel###旅行|旅游|驴友|自驾游|景点|景区|风景
+news_world###世界|局势|政治|经济|美国|中国|联合国|国际
+stock###股票|炒股|大盘|指数
+news_agriculture###农业|三农|水稻|农村
+news_game###游戏|手游|电脑|战队|电竞

@@ -24,10 +24,10 @@ def load_seed_keywords(keywords_file: str) -> Category:
     category_list = []
     with open(keywords_file, "r", encoding="utf-8") as fr:
         for line in fr:
-            categories, words = line.strip().split("\t")
+            categories, words = line.strip().split("###")
             category_list.append(categories)
             categories = categories.split("/")
-            words = set(words.split(" "))
+            words = set(words.split("|"))
             category.add_category(categories).set_keywords(words)
     category.set_category_list(category_list)
     logging.info("分类树: {}".format(category))
