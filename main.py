@@ -69,7 +69,7 @@ def init_bayes_model(category_tree: Category, documents_size: int, vocab_size: i
 
 
 def maximization_step(document_vectors, p_c, p_c_d, p_w_c):
-    # E-step更新P(C|D)后, 在M-step中更新P(W|C)(公式1)和P(C)(公式2)
+    # E-step更新P(C|D)后, 在M-step中更新P(W|C) (function 1)和P(C) (function 2)
     logging.info("Horizontal M-step")
     category_vectors = p_c_d @ document_vectors  # shape=(category_size, vocab_size)
     category_size = p_c.shape[0]
@@ -84,7 +84,7 @@ def maximization_step(document_vectors, p_c, p_c_d, p_w_c):
 
 
 def maximization_step_with_shrinkage(category_tree: Category, document_vectors, p_c, p_c_d, p_w_c, p_w_c_k, lambda_matrix, beta_matrix, iter: int):
-    # E-step更新P(C|D)后, 在M-step中更新P(W|C)(公式1)和P(C)(公式2)
+    # E-step更新P(C|D)后, 在M-step中更新P(W|C)(公式1)和P(C) (function 2)
     documents_size, vocab_size = document_vectors.shape
     category_size, lambda_size = lambda_matrix.shape
     category_list = category_tree.get_category_list()
@@ -114,21 +114,22 @@ def maximization_step_with_shrinkage(category_tree: Category, document_vectors, 
     for v in range(vocab_size):
         p_w_c_k[v, :, -2] = (1.0 + category_vector_root[0, v]) / (vocab_size + category_vector_root_sum)  # category_vector_root.ndim=2
     p_w_c_k[:, :, -1] = 1.0 / vocab_size
-    # update p_w_c by function(4)
+    # update p_w_c (function 4)
     for v in range(vocab_size):
         p_w_c[v] = (lambda_matrix * p_w_c_k[v]).sum(axis=1)
-    # update p_c by function(2)
+    # update p_c (function 2)
     for c in range(category_size):
         p_c[c] = (1 + p_c_d[c].sum()) / (category_size + documents_size)
 
 
 def expectation_step_with_shrinkage(document_vectors, p_c, p_w_c, p_w_c_k, lambda_matrix, beta_matrix):
-    # M-step更新P(W|C)和P(C)后, 在E-step中更新P(C|D)(公式3)
+    # M-step更新P(W|C)和P(C)后, 在E-step中更新P(C|D) (function 3)
     logging.info("Horizontal E-step")
     # vertical E
     shrinkage_expectation_step(document_vectors, lambda_matrix, beta_matrix, p_w_c_k)
     # horizontal E
     # 求log将function(3)中累乘改为累加
+    # TODO: p_w_c取top K, 或在求和时忽略低于阈值的概率
     log_p_d_c = document_vectors @ np.log(p_w_c)  # shape=(documents_size, category_size)
     log_p_c_d = np.log(p_c).reshape(-1, 1) + log_p_d_c.T  # shape=(category_size, documents_size)
     return utils.softmax(log_p_c_d)
@@ -168,7 +169,7 @@ def hierarchical_shrinkage_init(category_tree: Category, document_vectors):
 
 
 def shrinkage_maximization_step(lambda_matrix, beta_matrix, p_c_d):
-    # 更新λ function(6)
+    # update λ (function 6)
     logging.info("Vertical M-step")
     documents_size, category_size, lambda_size = beta_matrix.shape
     for c in tqdm(range(category_size)):
@@ -179,7 +180,7 @@ def shrinkage_maximization_step(lambda_matrix, beta_matrix, p_c_d):
 
 
 def shrinkage_expectation_step(document_vectors, lambda_matrix, beta_matrix, p_w_c_k):
-    # 更新β function(5)
+    # update β (function 5)
     logging.info("Vertical E-step")
     documents_size, vocab_size = document_vectors.shape
     for d in tqdm(range(documents_size)):
