@@ -110,7 +110,7 @@ max_iters = 5
 AMD 3700X每轮迭代耗时约1.2min，i5-7200U每轮迭代耗时约2.5min  
 
 ## 关键词&参数研究
-1. 初始关键词
+1. 初始关键词  
 大幅减少各分类关键词数:
 ```
 news_story###故事|事件|真实|民间
@@ -155,20 +155,20 @@ news_entertainment       0.93      0.51      0.66     39396
 初始关键词对分类效果有显著影响，当某分类召回率较低时，尝试增加关键词数量；优化一个分类的关键词，同时会小幅提升其他分类的效果。  
 如果存在易混淆分类，例如news_finance和stock，则调整关键词的作用不大，推荐处理办法是将混淆分类合并，或者增加层级关系。  
 
-2. 不同向量化参数
-改变max_df、min_df以及token_pattern，主要影响的是词典的大小。  
-在不同参数组合下，最差和最好的结果差距在3%左右，表明该参数没有决定性影响。  
-对于开放领域的中文语料，使用代码中的默认值即可。  
-备选组合：  
-`CountVectorizer(analyzer="word", max_df=0.8, min_df=0, token_pattern=r"(?u)\b\w\w+\b")`
-`CountVectorizer(analyzer="word", max_df=0.8, min_df=10, token_pattern=r"(?u)\b\w+\b")`
+2. 不同向量化参数  
+  改变max_df、min_df以及token_pattern，主要影响的是词典的大小。  
+  在不同参数组合下，最差和最好的结果差距在3%左右，表明该参数没有决定性影响。  
+  对于开放领域的中文语料，使用代码中的默认值即可。  
+  备选组合：  
+  `CountVectorizer(analyzer="word", max_df=0.8, min_df=0, token_pattern=r"(?u)\b\w\w+\b")`
+  `CountVectorizer(analyzer="word", max_df=0.8, min_df=10, token_pattern=r"(?u)\b\w+\b")`
 
-3. shrinkage步骤的影响
+3. shrinkage步骤的影响  
 经测试，hierarchical shrinkage步骤在分类不具备层级关系时，效果不明显。  
 而在分类存在层级关系时，取消shrinkage步骤将使分类结果偏聚到子分类上。  
 使用shrinkage步骤将使训练速度大幅降低，但完全在可接受范围内，因此默认在任何情况下均使用shrinkage步骤。
 
-4. 不同迭代轮数
+4. 不同迭代轮数  
 原论文以参数收敛作为EM迭代停止条件，但没有写明收敛的判定标准。  
 经测试，迭代一轮效果较差。迭代次数超过5次时，效果基本不再变好（甚至可能劣化）。  
 因此采用max_iters=5作为默认参数。
