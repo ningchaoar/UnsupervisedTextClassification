@@ -48,8 +48,8 @@ def load_data(file: str) -> List[str]:
 def word_segment(datas: List[str]) -> List[List[str]]:
     """
     对原始文档分词, 根据数据集格式调整这里的处理方式, 确保对文本进行分词
-    :param datas: list of document
-    :return: list of seged document
+    :param datas: list of raw lines
+    :return: list of segmented documents
     """
     segs = []
     for data in tqdm(datas, desc="文档集预分词"):
@@ -57,6 +57,9 @@ def word_segment(datas: List[str]) -> List[List[str]]:
         document = document.replace("_!_", " ")
         seg = list(jieba.cut(document))
         segs.append(seg)
+    logging.info("分词前: {}".format(datas[0]))
+    logging.info("分词后: {}".format(segs[0]))
+    logging.info("如所取字段与预期不一致, 需修改utils.word_segment, 确保其符合数据集格式")
     return segs
 
 
@@ -109,6 +112,7 @@ def load_model(model_dir: str):
 
 
 def get_report(result_file: str, label_file: str):
+    # 打印评测结果
     with open(label_file, "r", encoding="utf-8") as fr:
         labels = [line.strip() for line in fr]
     with open(result_file, "r", encoding="utf-8") as fr:
