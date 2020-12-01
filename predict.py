@@ -11,7 +11,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 class Classifier:
     def __init__(self, model_dir: str):
         vocab, self.p_c, self.p_w_c, self.labels = utils.load_model(model_dir)
-        self.cv = CountVectorizer(analyzer="word", token_pattern=r"(?u)\b\w\w+\b", vocabulary=vocab)
+        self.cv = CountVectorizer(analyzer="word", token_pattern=r"(?u)\b\w+\b", vocabulary=vocab)
 
     def predict_text(self, text: str):
         seg = " ".join(list(jieba.cut(text)))
