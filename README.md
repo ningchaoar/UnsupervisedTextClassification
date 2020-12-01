@@ -8,7 +8,7 @@ Implementation for paper ["Text Classification by Bootstrapping with Keywords, E
 
 ## 算法说明
 分类算法主要由以下四部分组成：  
-**1. 关键词预分类**  
+**1. 关键词预标注**  
   使用初始关键词(seed keywords)对文本集进行预标注。  
 **2. 多项式朴素贝叶斯**  
   在预标注的文本集上，对分类先验概率P(category)和单词的后验概率P(word|catrgory)进行估计，进而估计P(category|document)  
@@ -25,14 +25,14 @@ jieba
 tqdm  
 pickle  
 
-## 数据准备
+## 如何开始训练
 ### 待分类样本集
-实验所用语料为网友收集的**今日头条新闻语料**，包含15个分类下的38万条样本。  
-语料介绍及下载详见[toutiao-text-classfication-dataset](https://github.com/aceimnorstuvwxz/toutiao-text-classfication-dataset)  
+实验所用样本集为网友收集的**今日头条新闻语料**，包含15个分类下的38万条样本。  
+介绍及下载详见[toutiao-text-classfication-dataset](https://github.com/aceimnorstuvwxz/toutiao-text-classfication-dataset)  
 
 ### 初始关键词
 **1. 关键词格式**  
-  如示例关键词文件`resources/dict/words_toutiao_news.txt`所示:  
+  如`resources/dict/words_toutiao_news.txt`所示:  
   每行对应一个分类，分类与关键词之间用"###"分隔，关键词与关键词之间用"|"分隔  
   分类层级的表示方法为：父分类与子分类之间用"/"分隔，父分类在前，子分类在后。  
     例：`新闻/国际/经济###W1|W2|W3`  
@@ -46,22 +46,18 @@ pickle
   
   如分类结果不佳，首先检查样本集中是否存在较多的未定义分类，或者存在容易混淆的分类，前者需要新增相应分类，后者可以考虑对易混分类进行统一或建立层级关系。最后考虑对关键词进行优化和补充。  
 
-## 模块说明
-`main.py`: 模型训练main函数，给定关键词路径、语料路径、结果保存路径、模型保存路径和迭代轮数即可开始训练  
-`predict.py`: 模型读取&预测类  
-`utils.py`: 其中的word_segment函数需要在训练前根据语料格式做出修改。  
+### 训练模型
+`main.py`: **模型训练main函数**，给定关键词路径、样本路径、结果保存路径、模型保存路径和迭代轮数即可开始训练  
+`utils.py`: 如使用其他格式的样本，需修改word_segment函数以适应样本格式  
+
+### 其它模块说明
 `report.py`: 打印评测报告  
 `category.py`: 分类树类  
-
+`predict.py`: 模型读取&预测类, Classifier.predict_text为单条预测接口，传入原始文本并返回概率最高的前N个结果  
 `resources/dict/words_toutiao_news.txt`: 示例关键词文件  
-`resources/cropus/toutiao_cat_data_example.txt`: 示例语料文件(头条新闻语料抽样)  
+`resources/cropus/toutiao_cat_data_example.txt`: 示例样本文件(头条新闻语料抽样)  
 
-准备好语料和关键词，按以下步骤开始训练
-1. 读取&分词
-2. 训练
-3. 预测
-
-## 实验记录 
+## 实验记录
 1. 不同初始关键词
 2. 不同向量化参数
 3. shrinkage步骤的影响
