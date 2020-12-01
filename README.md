@@ -4,14 +4,14 @@ Implementation for paper ["Text Classification by Bootstrapping with Keywords, E
 无监督文本分类，基础算法来自上述论文，在细节和效率上做出一定优化。
 
 ## 适用场景
-对大批量无标注文本进行快速的预分类, 以研究样本分布情况和分类标注规则, 提高后续的精细化标注和使用复杂模型进行迭代的效率。
+对大批量无标注文本进行快速的预分类，以研究样本分布情况和分类标注规则，提高后续的精细化标注和使用复杂模型进行迭代的效率。
 
 ## 算法说明
 分类算法主要由以下四部分组成：  
 **1. 关键词预标注**  
   使用初始关键词(seed keywords)对文本集进行预标注。  
 **2. 多项式朴素贝叶斯**  
-  在预标注的文本集上，对分类先验概率P(category)和单词的后验概率P(word|catrgory)进行估计，进而估计P(category|document)  
+  在预标注的文本集上，对类别先验概率P(category)和单词的后验概率P(word|catrgory)进行估计，进而计算出P(category|document)  
 **3. hierachical shrinkage**  
   利用分类的层级关系，在估计P(word|category)时将父分类样本包含进去，缓解特征稀疏的问题  
 **4. EM迭代**  
@@ -27,7 +27,7 @@ pickle
 
 ## 如何开始训练
 ### 待分类样本集
-实验所用样本集为网友收集的**今日头条新闻语料**，包含15个分类下的38万条样本。  
+实验所用样本集为网友收集的**今日头条新闻语料**，包含15个分类下的382688条样本。  
 介绍及下载详见[toutiao-text-classfication-dataset](https://github.com/aceimnorstuvwxz/toutiao-text-classfication-dataset)  
 
 ### 初始关键词
@@ -53,7 +53,7 @@ pickle
 ### 其它模块说明
 `report.py`: 打印评测报告  
 `category.py`: 分类树类  
-`predict.py`: 模型读取&预测类, Classifier.predict_text为单条预测接口，传入原始文本并返回概率最高的前N个结果  
+`predict.py`: 模型读取&预测类，Classifier.predict_text为单条预测接口，传入原始文本并返回概率最高的前N个结果  
 `resources/dict/words_toutiao_news.txt`: 示例关键词文件  
 `resources/cropus/toutiao_cat_data_example.txt`: 示例样本文件(头条新闻语料抽样)  
 
