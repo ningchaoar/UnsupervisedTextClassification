@@ -2,7 +2,13 @@ from sklearn import metrics
 
 
 def get_report(result_file: str, label_file: str):
-    # 打印评测结果
+    """
+    打印评测结果
+    如格式不同, 调整代码并将标注和预测结果传入metrics.classification_report即可
+    :param result_file: 训练后得到的文本分类结果
+    :param label_file: 模型保存路径下的labels.txt路径
+    :return:
+    """
     with open(label_file, "r", encoding="utf-8") as fr:
         labels = [line.strip() for line in fr]
     with open(result_file, "r", encoding="utf-8") as fr:
