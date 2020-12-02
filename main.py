@@ -129,7 +129,6 @@ def expectation_step_with_shrinkage(document_vectors, p_c, p_w_c, p_w_c_k, lambd
     shrinkage_expectation_step(document_vectors, lambda_matrix, beta_matrix, p_w_c_k)
     # horizontal E
     # 求log将function(3)中累乘改为累加
-    # TODO: p_w_c取top K, 或在求和时忽略低于阈值的概率
     log_p_d_c = document_vectors @ np.log(p_w_c)  # shape=(documents_size, category_size)
     log_p_c_d = np.log(p_c).reshape(-1, 1) + log_p_d_c.T  # shape=(category_size, documents_size)
     return utils.softmax(log_p_c_d)
@@ -193,6 +192,15 @@ def shrinkage_expectation_step(document_vectors, lambda_matrix, beta_matrix, p_w
 
 
 def main(word_file, sms_file, result_file, model_save_path=None, max_iters=5):
+    """
+    模型训练主函数
+    :param word_file: 关键词文件路径
+    :param sms_file: 待分类样本文件路径
+    :param result_file: 分类结果保存路径
+    :param model_save_path: 模型参数保存路径
+    :param max_iters: 迭代轮数
+    :return:
+    """
     category_tree = utils.load_seed_keywords(word_file)
     datas = utils.load_data(sms_file)
     segs = utils.word_segment(datas)
