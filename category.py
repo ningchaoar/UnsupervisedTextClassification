@@ -19,7 +19,7 @@ class Category:
     def __hash__(self):
         return hash(self.name)
 
-    def __eq__(self, other):
+    def __eq__(self, other: 'Category'):
         if isinstance(other, self.__class__):
             return self.name == other.name
         else:
@@ -74,10 +74,10 @@ class Category:
     def get_childs(self) -> List['Category']:
         return list(self.childs.keys())
 
-    def get_category_list(self):
+    def get_category_list(self) -> List[str]:
         return self.category_list
 
-    def set_category_list(self, category_list):
+    def set_category_list(self, category_list: List[str]):
         self.category_list = category_list
 
     def add_document(self, document_index: int) -> None:
@@ -86,7 +86,7 @@ class Category:
     def get_documents(self) -> Set[int]:
         return self.documents
 
-    def get_documents_size(self):
+    def get_documents_size(self) -> int:
         return len(self.documents)
 
     def find_document(self, document_index: int) -> Optional['Category']:
