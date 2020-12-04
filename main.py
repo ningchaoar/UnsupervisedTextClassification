@@ -210,6 +210,7 @@ def main(word_file: str, sms_file: str, result_file: str, model_save_path=None, 
     datas = utils.load_data(sms_file)
     segs = utils.word_segment(datas)
     vocabulary, document_vectors = preliminary_labeling(category_tree, segs)
+    del segs
     p_c, p_c_d, p_w_c = init_bayes_model(category_tree, documents_size=len(datas), vocab_size=len(vocabulary))
     lambda_matrix, beta_matrix, p_w_c_k = hierarchical_shrinkage_init(category_tree, document_vectors)
     for _i in range(max_iters):
