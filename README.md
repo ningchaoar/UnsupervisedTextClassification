@@ -15,12 +15,12 @@ Implementation for paper ["Text Classification by Bootstrapping with Keywords, E
 **3. hierachical shrinkage**  
   利用分类的层级关系，在估计P(word|category)时将父分类样本包含进去，缓解特征稀疏的问题  
 **4. EM迭代**  
-  步骤2和步骤3均利用EM迭代进行更新并得到收敛  
+  步骤2和步骤3涉及的参数均利用EM迭代进行更新并得到收敛  
 
 ## Requirements
 python >= 3.6  
 numpy >= 1.6.0  
-scikit-learn  
+scikit-learn >= 0.21.0  
 jieba  
 tqdm  
 pickle  
@@ -107,7 +107,7 @@ CountVectorizer(analyzer="word", max_df=0.8, min_df=0.00001, token_pattern=r"(?u
 max_iters = 5
 ```
 性能：  
-内存占用峰值约1.2GB  
+内存占用峰值约1GB  
 AMD 3700X每轮迭代耗时约40s，i5-7200U每轮迭代耗时约75s  
 
 ## 关键词&参数研究
