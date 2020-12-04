@@ -19,11 +19,11 @@ Implementation for paper ["Text Classification by Bootstrapping with Keywords, E
 
 ## Requirements
 python >= 3.6  
-numpy >= 1.6.0  
+numpy >= 1.18.5  
+scipy >= 1.4.1  
 scikit-learn >= 0.21.0  
 jieba  
 tqdm  
-pickle  
 
 ## 如何开始训练
 ### 待分类样本集
