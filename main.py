@@ -124,10 +124,10 @@ def maximization_step_with_shrinkage(category_tree: Category, document_vectors, 
 
 def expectation_step_with_shrinkage(document_vectors, p_c, p_w_c, p_w_c_k, lambda_matrix, beta_matrix):
     # M-step更新P(W|C)和P(C)后, 在E-step中更新P(C|D) (function 3)
-    logging.info("Horizontal E-step")
     # vertical E
     shrinkage_expectation_step(document_vectors, lambda_matrix, beta_matrix, p_w_c_k)
     # horizontal E
+    logging.info("Horizontal E-step")
     # 求log将function(3)中累乘改为累加
     log_p_d_c = document_vectors @ np.log(p_w_c)  # shape=(documents_size, category_size)
     log_p_c_d = np.log(p_c).reshape(-1, 1) + log_p_d_c.T  # shape=(category_size, documents_size)
@@ -181,17 +181,22 @@ def shrinkage_maximization_step(lambda_matrix, beta_matrix, p_c_d):
 def shrinkage_expectation_step(document_vectors, lambda_matrix, beta_matrix, p_w_c_k):
     # update β (function 5)
     logging.info("Vertical E-step")
-    documents_size, vocab_size = document_vectors.shape
-    for d in tqdm(range(documents_size)):
-        document_vector_nonzero = document_vectors[d].nonzero()  # 获取该文档非零词频的索引
-        for v in document_vector_nonzero[1]:  # 注意document_vectors[d]是二维，因此这里索引值1才对应单词索引
-            p_w_c_alpha = lambda_matrix * p_w_c_k[v]  # shape = (category_size, lambda_size)
-            p_w_c_alpha = p_w_c_alpha / p_w_c_alpha.sum(axis=1).reshape(-1, 1)
-            p_w_c_alpha /= document_vector_nonzero[1].shape[0]  # 公式6分母上的Σk
-            beta_matrix[d] += p_w_c_alpha
+    documents_size = document_vectors.shape[0]
+    # 遍历前获取所有nonzero索引, 因为csr_matrix索引效率较低
+    document_vectors_nonzero = document_vectors.nonzero()
+    document_vectors_nonzero_count = np.bincount(document_vectors_nonzero[0], minlength=documents_size)
+    for d, v in tqdm(zip(*document_vectors_nonzero)):
+        p_w_c_alpha = lambda_matrix * p_w_c_k[v]  # shape = (category_size, lambda_size)
+        p_w_c_alpha = p_w_c_alpha / p_w_c_alpha.sum(axis=1).reshape(-1, 1)
+        beta_matrix[d] += p_w_c_alpha
+
+    # 改变了计算顺序, 由于精度原因导致结果与旧版略微不一致
+    for d in range(documents_size):
+        if document_vectors_nonzero_count[d] > 0:
+            beta_matrix[d] /= document_vectors_nonzero_count[d]  # 公式6分母上的Σk
 
 
-def main(word_file, sms_file, result_file, model_save_path=None, max_iters=5):
+def main(word_file: str, sms_file: str, result_file: str, model_save_path=None, max_iters=5):
     """
     模型训练主函数
     :param word_file: 关键词文件路径
