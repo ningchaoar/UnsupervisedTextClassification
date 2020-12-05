@@ -22,7 +22,8 @@ class Classifier:
         :param top_n: 返回概率最高的前N个预测结果, 默认为1
         :return: [(category_name, probability)]
         """
-        seg = " ".join(list(jieba.cut(text)))
+        # 分词模式与训练一致
+        seg = " ".join(utils.jieba_segment(text, mode="search"))
         text_vec = self.cv.transform([seg])
         log_p_d_c = text_vec @ np.log(self.p_w_c)
         log_p_c_d = np.log(self.p_c).reshape(-1, 1) + log_p_d_c.T
