@@ -6,6 +6,7 @@ import os
 import jieba
 import pickle
 import logging
+import collections
 import numpy as np
 from typing import *
 from tqdm import tqdm
@@ -44,22 +45,51 @@ def load_data(file: str) -> List[str]:
     return datas
 
 
-def word_segment(datas: List[str]) -> List[List[str]]:
+def word_segment(datas: List[str], mode: str="search") -> List[List[str]]:
     """
     对原始文档分词, 根据数据集格式调整这里的处理方式, 确保对文本进行分词
+    可以用自定义分词器替换jieba_segment
     :param datas: list of raw lines
+    :param mode: jieba分词模式, "default"(粗粒度) or "search"(细粒度)
+                 细粒度模式下, 一些长词会被再次切分(如 "计算机科学与技术" -> "计算机 科学 与 技术")
     :return: list of segmented documents
     """
     segs = []
     for data in tqdm(datas, desc="文档集预分词"):
         document = data.split("_!_", 3)[-1]
         document = document.replace("_!_", " ")
-        seg = list(jieba.cut(document))
+        seg = jieba_segment(document, mode=mode)
         segs.append(seg)
     logging.info("分词前: {}".format(datas[0]))
     logging.info("分词后: {}".format(segs[0]))
     logging.info("如所取字段与预期不一致, 需修改utils.word_segment, 确保其符合数据集格式")
     return segs
+
+
+def jieba_segment(text: str, mode: str) -> List[str]:
+    seg = list(jieba.tokenize(text, mode=mode))
+    # build DAG
+    graph = collections.defaultdict(list)
+    for word in seg:
+        graph[word[1]].append(word[2])
+
+    def dfs(graph: Dict[int, List[int]], v: int, seen: List[int]=None, path: List[int]=None):
+        if seen is None:
+            seen = []
+        if path is None:
+            path = [v]
+        seen.append(v)
+        paths = []
+        for t in graph[v]:
+            if t not in seen:
+                t_path = path + [t]
+                paths.append(tuple(t_path))
+                paths.extend(dfs(graph, t, seen, t_path))
+        return paths
+
+    longest_path = sorted(dfs(graph, 0), key=lambda x: len(x), reverse=True)[0]
+    longest_seg = [text[longest_path[i]: longest_path[i + 1]] for i in range(len(longest_path) - 1)]
+    return longest_seg
 
 
 def softmax(x):
