@@ -63,25 +63,25 @@ tqdm
 ```
                     precision    recall  f1-score   support
 
-        news_story       0.34      0.91      0.50      6273
-      news_culture       0.86      0.71      0.78     28031
-news_entertainment       0.93      0.75      0.83     39396
-       news_sports       0.98      0.84      0.91     37568
-      news_finance       0.54      0.39      0.45     27085
-        news_house       0.79      0.90      0.84     17672
-          news_car       0.94      0.90      0.92     35785
-          news_edu       0.83      0.83      0.83     27058
-         news_tech       0.81      0.72      0.76     41543
-     news_military       0.81      0.66      0.72     24984
+        news_story       0.35      0.92      0.50      6273
+      news_culture       0.86      0.73      0.79     28031
+news_entertainment       0.93      0.76      0.83     39396
+       news_sports       0.98      0.82      0.89     37568
+      news_finance       0.57      0.38      0.46     27085
+        news_house       0.80      0.89      0.85     17672
+          news_car       0.93      0.91      0.92     35785
+          news_edu       0.82      0.84      0.83     27058
+         news_tech       0.81      0.75      0.78     41543
+     news_military       0.79      0.72      0.75     24984
        news_travel       0.75      0.79      0.77     21422
-        news_world       0.52      0.74      0.61     26909
-             stock       0.02      0.71      0.05       340
-  news_agriculture       0.83      0.85      0.84     19322
-         news_game       0.90      0.91      0.90     29300
+        news_world       0.54      0.71      0.62     26909
+             stock       0.02      0.74      0.05       340
+  news_agriculture       0.83      0.84      0.84     19322
+         news_game       0.90      0.92      0.91     29300
 
           accuracy                           0.77    382688
-         macro avg       0.72      0.77      0.71    382688
-      weighted avg       0.81      0.77      0.78    382688
+         macro avg       0.73      0.78      0.72    382688
+      weighted avg       0.81      0.77      0.79    382688
 ```
 使用关键词：
 ```
@@ -105,6 +105,7 @@ news_game###游戏|手游|电脑|战队|电竞
 ```
 CountVectorizer(analyzer="word", max_df=0.8, min_df=0.00001, token_pattern=r"(?u)\b\w+\b")
 max_iters = 5
+分词模式: 细粒度
 ```
 性能：  
 内存占用峰值约1GB  
