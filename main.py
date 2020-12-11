@@ -27,13 +27,11 @@ def preliminary_labeling(category_tree: Category, segs: List[List[str]]):
     logging.info("词典大小: {}".format(len(vocabulary)))
     logging.info("文档预标注")
     for i, seg in tqdm(enumerate(segs)):
-        category = None
         for word in seg:
             category = category_tree.find_category_by_word(word)
             if category is not None:
+                category.add_document(i)
                 break
-        if category is not None:
-            category.add_document(i)
     return vocabulary, document_vectors
 
 
