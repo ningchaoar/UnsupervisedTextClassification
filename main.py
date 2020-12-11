@@ -194,18 +194,18 @@ def shrinkage_expectation_step(document_vectors, lambda_matrix, beta_matrix, p_w
             beta_matrix[d] /= document_vectors_nonzero_count[d]  # 公式6分母上的Σk
 
 
-def main(word_file: str, sms_file: str, result_file: str, model_save_path=None, max_iters=5):
+def main(word_file: str, cropus_file: str, result_file: str, model_save_path=None, max_iters=5):
     """
     模型训练主函数
     :param word_file: 关键词文件路径
-    :param sms_file: 待分类样本文件路径
+    :param cropus_file: 待分类样本文件路径
     :param result_file: 分类结果保存路径
     :param model_save_path: 模型参数保存路径
     :param max_iters: 迭代轮数
     :return:
     """
     category_tree = utils.load_seed_keywords(word_file)
-    datas = utils.load_data(sms_file)
+    datas = utils.load_data(cropus_file)
     segs = utils.word_segment(datas)
     vocabulary, document_vectors = preliminary_labeling(category_tree, segs)
     del segs
@@ -231,7 +231,7 @@ def main(word_file: str, sms_file: str, result_file: str, model_save_path=None, 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     main(word_file="resources/dict/words_toutiao_news.txt",
-         sms_file="resources/cropus/toutiao_cat_data.txt",
+         cropus_file="resources/cropus/toutiao_cat_data.txt",
          result_file="resources/cropus/toutiao_cat_data_result.txt",
          model_save_path="resources/model/toutiao_news_model",
          max_iters=5)
