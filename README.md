@@ -19,11 +19,12 @@ Implementation for paper ["Text Classification by Bootstrapping with Keywords, E
 
 ## Requirements
 python >= 3.6  
-numpy >= 1.18.5  
-scipy >= 1.4.1  
-scikit-learn >= 0.21.0  
-jieba  
-tqdm  
+numpy==1.19.2  
+scipy==1.5.4  
+scikit-learn==0.23.2  
+jieba==0.42.1  
+tqdm==4.54.1  
+
 
 ## 如何开始训练
 ### 待分类样本集
@@ -109,7 +110,7 @@ max_iters = 5
 ```
 性能：  
 内存占用峰值约1GB  
-AMD 3700X每轮迭代耗时约40s，i5-7200U每轮迭代耗时约75s  
+AMD 3700X每轮迭代耗时约60s，i5-7200U每轮迭代耗时约100s  
 
 ## 关键词&参数研究
 **1. 初始关键词的影响**  
