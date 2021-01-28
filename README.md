@@ -29,7 +29,7 @@ tqdm==4.54.1
 ## 如何开始训练
 ### 待分类样本集
 实验所用样本集为网友收集的**今日头条新闻语料**，包含15个分类下的382688条样本。  
-介绍及下载详见[toutiao-text-classfication-dataset](https://github.com/aceimnorstuvwxz/toutiao-text-classfication-dataset)  
+介绍及下载详见[toutiao-text-classfication-dataset](https://github.com/BenDerPan/toutiao-text-classfication-dataset)  
 下载并解压得到toutiao_cat_data.txt，其文件路径将在训练时作为参数传入main函数。
 
 ### 初始关键词
